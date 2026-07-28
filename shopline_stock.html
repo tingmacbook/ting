@@ -39,7 +39,7 @@
   .status-bar{display:none;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:var(--text-dim);align-items:center;gap:9px}
   .spinner{width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .summary-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+  .summary-cards{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:12px}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 14px;display:flex;align-items:center;gap:10px}
   .card-icon{font-size:18px}.card-num{font-size:24px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1}.card-label{font-size:10px;color:var(--text-dim);margin-top:2px}
   .card.warn{border-color:#fed7aa;background:var(--orange-bg)}.card.warn .card-num{color:var(--orange)}
@@ -85,6 +85,8 @@
   .tag-red{background:#fecaca;color:#991b1b}.tag-orange{background:#fed7aa;color:#9a3412}
   .tag-pink{background:#fbcfe8;color:#9d174d}.tag-blue{background:#bfdbfe;color:#1e3a8a}
   .tag-purple{background:#ddd6fe;color:#5b21b6}
+  .card.yellow{border-color:#fde68a;background:var(--yellow-bg)}.card.yellow .card-num{color:var(--yellow)}
+  .tag-yellow{background:#fde68a;color:#78350f}
   .sku-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:#eff6ff;padding:2px 6px;border-radius:4px;border:1px solid #bfdbfe;white-space:nowrap}
   .sheet-badge{font-size:10px;padding:1px 6px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);white-space:nowrap}
   .warn-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:#fef2f2;color:var(--red);border:1px solid #fecaca}
@@ -231,8 +233,18 @@
   <div id="resultsAcc" style="display:none">
     <div class="summary-cards" id="summaryCardsAcc"></div>
     <div class="result-section">
+      <div class="result-header" onclick="toggleAcc('body5','chev5')">
+        <div class="result-header-left"><span class="result-tag tag-yellow">🆕 新品未上架</span><span class="result-title">配件表「電商平台上架」標示為新品未上架</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count5"></span><span class="chevron open" id="chev5">▼</span></div>
+      </div>
+      <div class="result-body open" id="body5">
+        <table><thead><tr><th>產品編號/條碼</th><th>商品名稱</th><th>分頁</th><th style="text-align:center">辦公室＋大安庫存</th></tr></thead>
+        <tbody id="tbody5"></tbody></table>
+      </div>
+    </div>
+    <div class="result-section">
       <div class="result-header" onclick="toggleAcc('body1a','chev1a')">
-        <div class="result-header-left"><span class="result-tag tag-red">⚠️ 未上架</span><span class="result-title">配件表標示 Shopline線上，但 Shopline 找不到</span></div>
+        <div class="result-header-left"><span class="result-tag tag-red">⚠️ shopline找不到</span><span class="result-title">配件表標示 Shopline線上，但 Shopline 找不到</span></div>
         <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count1a"></span><span class="chevron open" id="chev1a">▼</span></div>
       </div>
       <div class="result-body open" id="body1a">
@@ -242,7 +254,7 @@
     </div>
     <div class="result-section">
       <div class="result-header" onclick="toggleAcc('body1b','chev1b')">
-        <div class="result-header-left"><span class="result-tag tag-orange">🔍 待確認</span><span class="result-title">Shopline 網店有上架，但配件表未標示 Shopline線上</span></div>
+        <div class="result-header-left"><span class="result-tag tag-orange">🔍 配件表狀態需調</span><span class="result-title">Shopline 網店有上架，但配件表未標示 Shopline線上</span></div>
         <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count1b"></span><span class="chevron" id="chev1b">▼</span></div>
       </div>
       <div class="result-body" id="body1b">
@@ -825,8 +837,11 @@ async function runComparisonAcc(){
   try{
     const slMap=await parseSLAcc(shoplineFilesAcc);
     showStatusAcc('比對中…');
-    const r1a=[],r1b=[],r2=[],r3=[],r4=[];
+    const r1a=[],r1b=[],r2=[],r3=[],r4=[],r5=[];
     for(const[sku,acc]of Object.entries(accDataAcc)){
+      // 5: 新品未上架（不論是否找得到 Shopline 對應資料，只要配件表標示新品未上架就列出）
+      if(acc.platform.includes('新品未上架'))
+        r5.push({sku,name:acc.name,sheet:acc.sheet,accStock:acc.stock});
       const inSL=sku in slMap;
       const sl=slMap[sku]||{};
       // 1a: 應上架但SL找不到
@@ -846,18 +861,19 @@ async function runComparisonAcc(){
       if(sl.isOnline&&!acc.canPreorder&&sl.pre==='Y')
         r4.push({sku,name:acc.name,stop:acc.stop,co:acc.co,slQty:sl.qty||0,accStock:acc.stock});
     }
-    lastResultAcc={r1a,r1b,r2,r3,r4};
-    renderAcc(r1a,r1b,r2,r3,r4);
+    lastResultAcc={r1a,r1b,r2,r3,r4,r5};
+    renderAcc(r1a,r1b,r2,r3,r4,r5);
   }catch(err){showErrorAcc(`比對失敗：${err.message}`);}
   finally{hideStatusAcc();}
 }
 
 // ── 渲染 ──────────────────────────────────────────────────────────────
-function renderAcc(r1a,r1b,r2,r3,r4){
+function renderAcc(r1a,r1b,r2,r3,r4,r5){
   document.getElementById('resultsAcc').style.display='block';
   document.getElementById('summaryCardsAcc').innerHTML=`
-    <div class="card red"><div class="card-icon">⚠️</div><div><div class="card-num">${r1a.length}</div><div class="card-label">未上架</div></div></div>
-    <div class="card orange"><div class="card-icon">🔍</div><div><div class="card-num">${r1b.length}</div><div class="card-label">待確認</div></div></div>
+    <div class="card yellow"><div class="card-icon">🆕</div><div><div class="card-num">${r5.length}</div><div class="card-label">新品未上架</div></div></div>
+    <div class="card red"><div class="card-icon">⚠️</div><div><div class="card-num">${r1a.length}</div><div class="card-label">shopline找不到</div></div></div>
+    <div class="card orange"><div class="card-icon">🔍</div><div><div class="card-num">${r1b.length}</div><div class="card-label">配件表狀態需調</div></div></div>
     <div class="card pink"><div class="card-icon">💰</div><div><div class="card-num">${r2.length}</div><div class="card-label">特價不符</div></div></div>
     <div class="card blue"><div class="card-icon">📦</div><div><div class="card-num">${r3.length}</div><div class="card-label">數量不符</div></div></div>
     <div class="card purple"><div class="card-icon">🚫</div><div><div class="card-num">${r4.length}</div><div class="card-label">預購問題</div></div></div>`;
@@ -866,6 +882,7 @@ function renderAcc(r1a,r1b,r2,r3,r4){
   document.getElementById('count2').textContent=`${r2.length} 筆`;
   document.getElementById('count3').textContent=`${r3.length} 筆`;
   document.getElementById('count4').textContent=`${r4.length} 筆`;
+  document.getElementById('count5').textContent=`${r5.length} 筆`;
 
   const empty=(cols,msg)=>`<tr><td colspan="${cols}" style="text-align:center;padding:18px;color:var(--text-dim)">✅ ${msg}</td></tr>`;
 
@@ -893,6 +910,9 @@ function renderAcc(r1a,r1b,r2,r3,r4){
   document.getElementById('tbody4').innerHTML=r4.length===0?empty(5,'無預購問題')
     :r4.map(r=>`<tr><td><span class="sku-code">${escAcc(r.sku)}</span></td><td style="max-width:260px">${escAcc(r.name)}</td><td style="text-align:center;color:var(--red)">${escAcc(r.stop)}</td><td style="text-align:center;color:var(--red)">${escAcc(r.co)}</td><td style="text-align:center"><span class="warn-badge">關閉預購</span></td><td style="text-align:center">${r.slQty!==undefined?r.slQty:'-'}</td><td style="text-align:center;font-weight:600">${r.accStock!==undefined?r.accStock:'-'}</td></tr>`).join('');
 
+  document.getElementById('tbody5').innerHTML=r5.length===0?empty(4,'無新品未上架')
+    :r5.map(r=>`<tr><td><span class="sku-code">${escAcc(r.sku)}</span></td><td style="max-width:260px">${escAcc(r.name)}</td><td><span class="sheet-badge">${escAcc(r.sheet)}</span></td><td style="text-align:center;font-weight:600">${r.accStock!==undefined?r.accStock:'-'}</td></tr>`).join('');
+
   const now=new Date();
   document.getElementById('reportTsAcc').textContent=`比對時間：${now.toLocaleDateString('zh-TW')} ${now.toLocaleTimeString('zh-TW')}`;
   window.scrollTo({top:document.getElementById('resultsAcc').offsetTop-16,behavior:'smooth'});
@@ -912,13 +932,14 @@ function hideErrorAcc(){document.getElementById('errorMsgAcc').style.display='no
 function escAcc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function exportCSVAcc(){
   if(!lastResultAcc)return;
-  const{r1a,r1b,r2,r3,r4}=lastResultAcc;
+  const{r1a,r1b,r2,r3,r4,r5}=lastResultAcc;
   let csv='區塊,SKU,商品名稱,分頁,SL數值,配件表數值,差異\n';
   r1a.forEach(r=>csv+=`未上架,"${r.sku}","${r.name}","${r.sheet}",,\n`);
   r1b.forEach(r=>csv+=`待確認,"${r.sku}","${r.name}","${r.sheet}",,,SL有但未打勾\n`);
   r2.forEach(r=>{const d=r.diff>0?'+'+r.diff:r.diff;csv+=`特價不符,"${r.sku}","${r.name}",,${r.slPrice},${r.accPrice},${d}\n`;});
   r3.forEach(r=>{const d=r.diff>0?'+'+r.diff:r.diff;csv+=`數量不符,"${r.sku}","${r.name}",,${r.slQty},${r.accStock},${d}\n`;});
   r4.forEach(r=>csv+=`預購問題,"${r.sku}","${r.name}",,"${r.stop}","${r.co}"\n`);
+  r5.forEach(r=>csv+=`新品未上架,"${r.sku}","${r.name}","${r.sheet}",,${r.accStock}\n`);
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`配件比對_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
