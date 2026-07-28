@@ -276,12 +276,9 @@
         <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count4"></span><span class="chevron open" id="chev4">▼</span></div>
       </div>
       <div class="rule-box" id="ruleBox4">
-        <strong>規則說明 — 符合以下任一條件即不會列在此表（視為可預購）：</strong>
-        <ul>
-          <li>「是否停產」＝可叫貨（不論公司狀態為何）</li>
-          <li>「是否停產」≠可叫貨，但「公司狀態」＝已叫貨／接客訂／空白／#N/A</li>
-        </ul>
-        其餘情況（是否停產≠可叫貨，且公司狀態為售完不補／不備貨／未備貨）才會列在此表，建議關閉預購。
+        <strong>規則說明：</strong>
+        只要「公司狀態」＝售完不補／不備貨／未備貨，無論「是否停產」欄位為何，皆列在此表，建議關閉預購。
+        其餘公司狀態（如可叫貨／已叫貨／接客訂／空白／#N/A）視為可預購，不會列在此表。
       </div>
       <div class="result-body open" id="body4">
         <table><thead><tr><th>產品編號/條碼</th><th>商品名稱</th><th style="text-align:center">是否停產</th><th style="text-align:center">公司狀態</th><th style="text-align:center">建議動作</th><th style="text-align:center">Shopline 數量</th><th style="text-align:center">辦公室＋大安</th></tr></thead>
@@ -719,13 +716,13 @@ async function parseAccAcc(file){
         const stock=calcStock(row);
         const stop=String(row[stopI]||'').trim();
         const co=String(row[coI]||'').trim();
-        // 「不會再有貨」的狀態 → 視為不可預購；其餘(含可叫貨/已叫貨/接客訂/缺貨/暫缺/空白/#N/A等)視為可預購
-        const NO_STOCK_STATUS=new Set(['售完不補','不備貨','未備貨','停產','售完停產','不再備貨','不再叫貨','不再補貨']);
+        // 只看「公司狀態」：只要是售完不補／不備貨／未備貨，一律視為不可預購（不論「是否停產」為何）
+        const NO_STOCK_STATUS=new Set(['售完不補','不備貨','未備貨']);
         const isNoStock=v=>NO_STOCK_STATUS.has(v);
         items[sku]={
           name,platform,price,stock,stop,co,sheet:sheetName,
           shouldShopline:platform.includes('Shopline線上'),
-          canPreorder:stop==='可叫貨'||(!isNoStock(stop)&&!isNoStock(co))
+          canPreorder:!isNoStock(co)
         };
       }
     }
