@@ -234,7 +234,7 @@
     <div class="summary-cards" id="summaryCardsAcc"></div>
     <div class="result-section">
       <div class="result-header" onclick="toggleAcc('body5','chev5')">
-        <div class="result-header-left"><span class="result-tag tag-yellow">🆕 新品未上架</span><span class="result-title">配件表「電商平台上架」標示為新品未上架</span></div>
+        <div class="result-header-left"><span class="result-tag tag-yellow">🆕 新品未上架</span><span class="result-title">配件表「電商平台上架」標示為新品未上架或新品待上架</span></div>
         <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count5"></span><span class="chevron open" id="chev5">▼</span></div>
       </div>
       <div class="result-body open" id="body5">
@@ -839,8 +839,8 @@ async function runComparisonAcc(){
     showStatusAcc('比對中…');
     const r1a=[],r1b=[],r2=[],r3=[],r4=[],r5=[];
     for(const[sku,acc]of Object.entries(accDataAcc)){
-      // 5: 新品未上架（不論是否找得到 Shopline 對應資料，只要配件表標示新品未上架就列出）
-      if(acc.platform.includes('新品未上架'))
+      // 5: 新品未上架（不論是否找得到 Shopline 對應資料，只要配件表標示新品未上架或新品待上架就列出）
+      if(acc.platform.includes('新品未上架')||acc.platform.includes('新品待上架'))
         r5.push({sku,name:acc.name,sheet:acc.sheet,accStock:acc.stock});
       const inSL=sku in slMap;
       const sl=slMap[sku]||{};
