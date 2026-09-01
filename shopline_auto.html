@@ -355,7 +355,7 @@
     <div class="result-section">
       <div class="result-header" onclick="toggleAcc('body4','chev4')">
         <div class="result-header-left"><span class="result-tag tag-purple">預購異常</span><span class="result-title">配件表不可預購，但 SHOPLINE 預購仍開啟</span><span class="info-icon" onclick="event.stopPropagation();document.getElementById('ruleBox4').classList.toggle('open')">i</span></div>
-        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count4"></span><span class="chevron open" id="chev4">▼</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><button class="apply-btn" id="applyPreorderBtnAcc" onclick="event.stopPropagation();applyAccPreorders()">關閉預購</button><span class="result-count" id="count4"></span><span class="chevron open" id="chev4">▼</span></div>
       </div>
       <div class="rule-box" id="ruleBox4">
         <strong>規則說明：</strong>
@@ -990,6 +990,8 @@ async function runComparisonAccWithMap(slMap){
         sheet:acc.sheet,
         reason:'配件表公司狀態為不可預購',
         action:'關閉 SHOPLINE 預購',
+        productId:sl.productId||'',
+        variationId:sl.variationId||'',
         slQty:sl.qty||0,
         accStock:acc.stock
       });
@@ -1619,6 +1621,8 @@ async function runComparisonAcc(){
           sheet:acc.sheet,
           reason:'配件表公司狀態為不可預購',
           action:'關閉 SHOPLINE 預購',
+          productId:sl.productId||'',
+          variationId:sl.variationId||'',
           slQty:sl.qty||0,
           accStock:acc.stock
         });
@@ -1650,6 +1654,12 @@ function renderAcc(r1a,r1b,r2,r3,r4,r5,apiMeta={}){
   document.getElementById('count3').textContent=`${r3.length} 筆`;
   document.getElementById('count4').textContent=preorderSupported&&activePreorderCount?`${r4.length} 筆 / 已開 ${activePreorderCount}`:`${r4.length} 筆`;
   document.getElementById('count5').textContent=`${r5.length} 筆`;
+  const preorderBtn=document.getElementById('applyPreorderBtnAcc');
+  if(preorderBtn){
+    const canApply=preorderSupported&&r4.length>0;
+    preorderBtn.style.display=canApply?'inline-flex':'none';
+    preorderBtn.disabled=!canApply;
+  }
 
   const empty=(cols,msg)=>`<tr><td colspan="${cols}" style="text-align:center;padding:18px;color:var(--text-dim)">${msg}</td></tr>`;
 
@@ -1696,6 +1706,55 @@ function hideStatusAcc(){document.getElementById('statusBarAcc').style.display='
 function showErrorAcc(m){const el=document.getElementById('errorMsgAcc');el.textContent=m;el.style.display='block';}
 function hideErrorAcc(){document.getElementById('errorMsgAcc').style.display='none';}
 function escAcc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+async function applyAccPreorders(){
+  if(!lastResultAcc||!lastResultAcc.r4||!lastResultAcc.r4.length)return;
+  hideErrorAcc();
+  const seen=new Set();
+  const candidates=lastResultAcc.r4
+    .filter(r=>r.productId)
+    .map(r=>({sku:r.sku,product_id:r.productId,variation_id:r.variationId,preorder:false}))
+    .filter(item=>{
+      const key=[item.product_id,item.variation_id||'',item.sku||''].join('|');
+      if(seen.has(key))return false;
+      seen.add(key);
+      return true;
+    });
+  if(!candidates.length){
+    showErrorAcc(`預購關閉失敗：這次 ${lastResultAcc.r4.length} 筆預購異常沒有可更新的商品 ID。請先更新 Cloudflare Worker，再按一次「即時更新」後重試。`);
+    return;
+  }
+  const btn=document.getElementById('applyPreorderBtnAcc');
+  if(btn){
+    btn.disabled=true;
+    btn.textContent='關閉中...';
+  }
+  showStatusAcc(`正在關閉 ${candidates.length} 筆配件預購，請稍等...`);
+  try{
+    const endpoint=new URL(LIVE_SOURCES.shoplineApi);
+    const response=await fetch(endpoint.origin+'/shopline-preorders',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({items:candidates,preorder:false})
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data.error)throw new Error(data.error||`SHOPLINE proxy ${response.status}`);
+    const failed=Number(data.failed||0), updated=Number(data.updated||0);
+    if(failed>0){
+      const sample=(data.results||[]).filter(r=>!r.ok).slice(0,3).map(r=>`${r.sku||''} ${r.error||r.status||''}`.trim()).join('；');
+      throw new Error(`已處理 ${updated} 筆，失敗 ${failed} 筆${sample?'：'+sample:''}`);
+    }
+    showStatusAcc(`已關閉 ${updated} 筆配件預購，正在重新比對...`);
+    await runAllInventory();
+  }catch(err){
+    showErrorAcc(`預購關閉失敗：${err.message}`);
+  }finally{
+    if(btn){
+      btn.textContent='關閉預購';
+      btn.disabled=!(lastResultAcc&&lastResultAcc.r4&&lastResultAcc.r4.length);
+    }
+    hideStatusAcc();
+  }
+}
 function exportCSVAcc(){
   if(!lastResultAcc)return;
   const{r1a,r1b,r2,r3,r4,r5}=lastResultAcc;
@@ -1704,7 +1763,7 @@ function exportCSVAcc(){
   r1b.forEach(r=>csv+=`待確認,"${r.sku}","${r.name}","${r.sheet}","${r.slQty||0}","${r.accStock||0}",,"SHOPLINE 有上架，但配件表未標示 Shopline線上","確認配件表上架狀態","",${r.accStock||0}\n`);
   r2.forEach(r=>{const d=r.diff>0?'+'+r.diff:r.diff;csv+=`特價不符,"${r.sku}","${r.name}","","${r.slPrice}","${r.accPrice}","${d}","SHOPLINE 特價與配件表建議售價不同","確認價格","",${r.accStock||0}\n`;});
   r3.forEach(r=>{const d=r.diff>0?'+'+r.diff:r.diff;csv+=`數量不符,"${r.sku}","${r.name}","","${r.slQty}","${r.accStock}","${d}","SHOPLINE 數量與辦公室＋大安庫存不同","調整 SHOPLINE 數量","",${r.accStock}\n`;});
-  r4.forEach(r=>csv+=`預購待查,"${r.sku}","${r.name}","${r.sheet||''}","${r.slQty||0}","${r.accStock!==undefined?r.accStock:''}",,"${r.reason||''}","${r.action||'確認預購'}","${r.co||''}","${r.accStock!==undefined?r.accStock:''}"\n`);
+  r4.forEach(r=>csv+=`預購異常,"${r.sku}","${r.name}","${r.sheet||''}","${r.slQty||0}","${r.accStock!==undefined?r.accStock:''}",,"${r.reason||''}","${r.action||'關閉 SHOPLINE 預購'}","${r.co||''}","${r.accStock!==undefined?r.accStock:''}"\n`);
   r5.forEach(r=>csv+=`新品未上架,"${r.sku}","${r.name}","${r.sheet}",,"${r.accStock||0}",,"配件表標示新品未上架或新品待上架","確認是否可上架","",${r.accStock||0}\n`);
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`配件比對_${new Date().toISOString().slice(0,10)}.csv`;a.click();
