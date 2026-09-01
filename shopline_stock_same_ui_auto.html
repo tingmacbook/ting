@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>麥克愛愛｜庫存比對系統</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='6' width='52' height='52' rx='14' fill='%23111827'/%3E%3Cpath d='M18 43V21h7l7 10 7-10h7v22h-7V31.8l-7 9.4-7-9.4V43h-7Z' fill='white'/%3E%3Cpath d='M45 13h6v6' fill='none' stroke='%23f08830' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+  :root{--bg:#f6f7fb;--surface:#fff;--surface2:#f9fafb;--border:#e5e7eb;--border2:#d1d5db;--text:#111827;--text-dim:#667085;--accent:#1f5eff;--brand:#101828;--orange:#9f5b00;--red:#d92d20;--green:#17803b;--blue:#2563eb;--yellow:#987100;--red-bg:#fff5f5;--orange-bg:#fff9f0;--green-bg:#f0fbf4;--blue-bg:#f1f6ff;--yellow-bg:#fffbea;--shadow:0 10px 30px rgba(17,24,39,.06);}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;font-size:14px;letter-spacing:0}
+  .header{background:rgba(255,255,255,.96);border-bottom:1px solid var(--border);padding:6px 22px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(17,24,39,.05);backdrop-filter:saturate(160%) blur(10px)}
+  .logo{font-size:13px;font-weight:800;display:flex;align-items:center;gap:9px;color:var(--text)}
+  .brand-mark{width:24px;height:24px;display:block;flex:0 0 auto}
+  .logo-title{line-height:1;font-weight:800}
+  .logo-subtle{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--text-dim);font-weight:600;letter-spacing:.08em;margin-top:2px;text-transform:uppercase}
+  .header-actions{display:flex;align-items:center;gap:12px}
+  .inv-status{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--border2)}.dot.live{background:var(--green)}.dot.err{background:var(--red)}
+  body.is-updating .inv-status::before,.btn-spinner{content:"";width:12px;height:12px;border:2px solid rgba(31,94,255,.18);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;display:inline-block;flex:0 0 auto}
+  body.is-updating .inv-status .dot{display:none}
+  .run-btn .btn-spinner{border-color:rgba(255,255,255,.38);border-top-color:#fff;margin-right:7px;vertical-align:-2px}
+  .run-btn:disabled{display:inline-flex;align-items:center;justify-content:center}
+  .main{max-width:1220px;margin:0 auto;padding:8px 20px 56px;display:grid;grid-template-columns:1fr;gap:9px;align-items:start}
+  .upload-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px;margin-bottom:0;display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));align-items:stretch;gap:7px;box-shadow:0 8px 24px rgba(17,24,39,.045)}
+  .upload-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);white-space:nowrap}
+  .upload-slots{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+  .upload-slot{position:relative;border:1px solid var(--border);border-radius:7px;padding:8px 12px;display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;background:#fbfcfe;text-align:center;min-height:52px}
+  .upload-slot:hover{border-color:var(--border);background:var(--surface2)}
+  .upload-slot.filled,.upload-slot.inv-slot,.upload-slot.inv-slot.filled{border-color:var(--border);border-style:solid;background:var(--surface2);width:auto}
+  .slot-icon{display:none}.slot-info{min-width:0;width:100%}
+  .slot-type{font-size:10px;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em}
+  .slot-name{font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:none;font-weight:800;font-family:'JetBrains Mono',monospace}
+  .slot-name.ready{color:var(--green);font-weight:700}
+  .upload-slot input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .divider{display:none}
+  .run-btn{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:800;font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;box-shadow:0 8px 18px rgba(31,94,255,.22);width:100%}
+  .run-btn:hover:not(:disabled){background:#174fe0;transform:translateY(-1px);box-shadow:0 10px 22px rgba(31,94,255,.28)}
+  .run-btn:disabled{background:var(--border2);color:var(--text-dim);cursor:not-allowed}
+  .top-run-btn{width:auto;padding:8px 16px;border-radius:7px;font-size:12px;box-shadow:0 8px 18px rgba(31,94,255,.18)}
+  .upload-panel .run-btn{display:none}
+  .error-msg{background:var(--red-bg);border:1px solid #fecdd3;border-radius:7px;padding:10px 14px;color:var(--red);font-size:12px;margin-bottom:12px;display:none}
+  .status-bar{display:none;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:9px 14px;margin-bottom:12px;font-size:12px;color:var(--text-dim);align-items:center;gap:9px;box-shadow:0 4px 12px rgba(17,24,39,.04)}
+  .error-msg,.status-bar,#resultsApple,#resultsAcc{grid-column:1}
+  .spinner{width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+  .is-hidden{display:none!important}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .summary-cards{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:9px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 12px rgba(17,24,39,.035);min-height:58px}
+  .card-icon{display:none}.card-num{font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1}.card-label{font-size:10px;color:var(--text-dim);margin-top:3px;font-weight:800}
+  .card.warn,.card.orange{border-color:#ead39d;background:var(--orange-bg)}.card.warn .card-num,.card.orange .card-num{color:var(--orange)}
+  .card.info{border-color:#c9ddff;background:var(--blue-bg)}.card.info .card-num{color:var(--blue)}
+  .card.ok{border-color:#bfeccf;background:var(--green-bg)}.card.ok .card-num{color:var(--green)}
+  .result-section{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--border2);border-radius:8px;overflow:hidden;margin-bottom:7px;box-shadow:0 4px 14px rgba(17,24,39,.03)}
+  .result-section:has(.tag-warn),.result-section:has(.tag-orange){border-left-color:#c88a00}
+  .result-section:has(.tag-red){border-left-color:#e5484d}
+  .result-section:has(.tag-pink){border-left-color:#d9468f}
+  .result-section:has(.tag-info),.result-section:has(.tag-blue){border-left-color:#3b82f6}
+  .result-section:has(.tag-ok){border-left-color:#22a557}
+  .result-section:has(.tag-purple){border-left-color:#8b5cf6}
+  .result-section:has(.tag-yellow){border-left-color:#d9a406}
+  .result-header{min-height:44px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;background:#fff}
+  .result-header:hover{background:#f8fafc}
+  .result-header-left{display:flex;align-items:center;gap:10px;min-width:0}
+  .result-tag{width:84px;text-align:center;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.04em;white-space:nowrap;flex:0 0 auto}
+  .tag-warn{background:#f4d9a3;color:#744500}.tag-info{background:#cfe2ff;color:#174ea6}.tag-ok{background:#c9f2d5;color:#146c2e}
+  .result-title{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.result-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);font-weight:700;white-space:nowrap;background:#f8fafc;border:1px solid var(--border);border-radius:999px;padding:2px 8px}
+  .chevron{color:var(--text-dim);font-size:11px;transition:transform .2s}.chevron.open{transform:rotate(180deg)}
+  .result-body{display:none;overflow-x:auto}.result-body.open{display:block;border-top:1px solid var(--border)}
+  .info-icon{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--border2);color:#fff;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0}
+  .info-icon:hover{background:var(--accent)}
+  .rule-box{display:none;background:var(--surface2);border-bottom:1px solid var(--border);padding:9px 15px;font-size:12px;color:var(--text-dim);line-height:1.7}
+  .rule-box.open{display:block}
+  .rule-box ul{margin:4px 0 0 18px}
+  table{width:100%;border-collapse:collapse}
+  thead tr{background:#f8f9fb}
+  th{padding:9px 13px;text-align:left;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);white-space:nowrap;border-bottom:1px solid var(--border)}
+  td{padding:9px 13px;border-bottom:1px solid #f1f3f6;vertical-align:middle;font-size:12px}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#fafbfc}
+  .erp-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:#eff6ff;padding:2px 6px;border-radius:4px;border:1px solid #bfdbfe}
+  .diff-neg{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--red)}
+  .diff-pos{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green)}
+  .suggest-cell{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;padding:2px 9px;border-radius:4px;display:inline-block}
+  .suggest-neg{color:var(--red);background:#fef2f2;border:1px solid #fecaca}
+  .suggest-pos{color:var(--green);background:#f0fdf4;border:1px solid #bbf7d0}
+  .pending-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--yellow-bg);color:var(--yellow);border:1px solid #fde68a}
+  .actions-row{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+  .export-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:12px;font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:all .15s}
+  .export-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--blue-bg)}
+  .apply-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid #d1ddff;background:#eef4ff;color:var(--accent);border-radius:999px;padding:5px 12px;font-size:11px;font-weight:800;font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:all .15s;white-space:nowrap}
+  .apply-btn:hover:not(:disabled){background:var(--accent);border-color:var(--accent);color:#fff}
+  .apply-btn:disabled{opacity:.55;cursor:not-allowed}
+  .ts{font-size:10px;color:var(--text-dim);text-align:right;margin-top:5px;font-family:'JetBrains Mono',monospace}
+
+
+  .logo-sub{font-size:11px;color:var(--text-dim);margin-left:8px;font-weight:400}
+  .card.red{border-color:#ffc9c9;background:var(--red-bg)}.card.red .card-num{color:var(--red)}
+  .card.pink{border-color:#f8c7df;background:var(--pink-bg)}.card.pink .card-num{color:var(--pink)}
+  .card.purple{border-color:#ddd4ff;background:var(--purple-bg)}.card.purple .card-num{color:var(--purple)}
+  .tag-red{background:#ffd1d1;color:#9f1f25}.tag-orange{background:#f4d9a3;color:#744500}
+  .tag-pink{background:#fbd0e5;color:#9a1f57}.tag-blue{background:#cfe2ff;color:#174ea6}
+  .tag-purple{background:#e3dcff;color:#5b32aa}
+  .card.yellow{border-color:#f5dd88;background:var(--yellow-bg)}.card.yellow .card-num{color:var(--yellow)}
+  .tag-yellow{background:#f7e394;color:#754a00}
+  .sku-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:#eff6ff;padding:2px 6px;border-radius:4px;border:1px solid #bfdbfe;white-space:nowrap}
+  .sheet-badge{font-size:10px;padding:1px 6px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);white-space:nowrap}
+  .warn-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:#fef2f2;color:var(--red);border:1px solid #fecaca}
+  .sl-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap;display:inline-block}
+  .sl-badge.sl-missing{background:#fef2f2;color:var(--red);border:1px solid #fecaca}
+  .sl-badge.sl-draft{background:#fffbeb;color:var(--yellow);border:1px solid #fde68a}
+  :root{--pink-bg:#fdf2f8;--purple-bg:#f5f3ff;}
+
+  /* ── Tab styles ── */
+  .tab-bar{background:rgba(255,255,255,.94);border-bottom:1px solid var(--border);display:flex;justify-content:center;padding:8px 24px;position:sticky;top:38px;z-index:99;backdrop-filter:saturate(160%) blur(10px)}
+  .tab-bar::before{content:"";position:absolute;width:246px;height:42px;border-radius:999px;background:#f0f2f7;box-shadow:inset 0 1px 1px rgba(17,24,39,.04)}
+  .tab-btn{position:relative;z-index:1;min-width:123px;padding:10px 22px;font-size:13px;font-weight:800;font-family:'Noto Sans TC',sans-serif;background:transparent;border:0;border-radius:999px;cursor:pointer;color:#667085;transition:all .18s}
+  .tab-btn.active{color:#fff;background:var(--accent);box-shadow:0 10px 24px rgba(31,94,255,.2)}
+  .tab-btn:hover:not(.active){color:var(--text)}
+  .tab-pane{display:none}.tab-pane.active{display:block}
+  .settings-btn{display:none;margin-left:auto;align-self:center;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--text-dim);cursor:pointer}
+  .settings-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--blue-bg)}
+  .settings-modal{position:fixed;inset:0;background:rgba(15,23,42,.35);display:none;align-items:center;justify-content:center;z-index:999}
+  .settings-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:min(760px,calc(100vw - 32px));box-shadow:0 20px 60px rgba(15,23,42,.22);overflow:hidden}
+  .settings-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+  .settings-head h2{font-size:17px}
+  .settings-body{padding:16px 18px;display:grid;gap:12px}
+  .field label{display:block;font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:5px}
+  .field input{width:100%;border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:13px;font-family:'JetBrains Mono',monospace}
+  .settings-note{font-size:12px;color:var(--text-dim);line-height:1.7;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:9px 11px}
+  .settings-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border)}
+  @media (max-width: 760px){
+    .header{padding:10px 14px}
+    .header-actions{gap:8px}
+    .inv-status{display:none}
+    .top-run-btn{padding:8px 12px}
+    .main{padding:14px 12px 48px;grid-template-columns:1fr}
+    .upload-panel{grid-template-columns:1fr;gap:8px;position:static}
+    .error-msg,.status-bar,#resultsApple,#resultsAcc{grid-column:1}
+    .run-btn{width:100%}
+    .summary-cards{grid-template-columns:repeat(2,1fr)!important}
+    .tab-bar{top:49px}
+  }
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="logo">
+    <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="6" y="6" width="52" height="52" rx="14" fill="#111827"/>
+      <path d="M18 43V21h7l7 10 7-10h7v22h-7V31.8l-7 9.4-7-9.4V43h-7Z" fill="#fff"/>
+      <path d="M45 13h6v6" fill="none" stroke="#f08830" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <div class="logo-title">麥克愛愛 庫存比對系統</div>
+      <div class="logo-subtle">inventory control</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <div class="inv-status"><div class="dot" id="invDot"></div><span id="invStatusText">待更新</span></div>
+    <button class="run-btn top-run-btn" id="topRunBtn" onclick="runAllInventory()">即時更新</button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('apple')">主機庫存</button>
+  <button class="tab-btn" onclick="switchTab('acc')">配件庫存</button>
+</div>
+
+<div class="settings-modal" id="sourceSettings">
+  <div class="settings-card">
+    <div class="settings-head">
+      <h2>資料來源設定</h2>
+      <button class="export-btn" onclick="closeSourceSettings()">關閉</button>
+    </div>
+    <div class="settings-body">
+      <div class="field">
+        <label>Google Apps Script 庫存代理網址</label>
+        <input id="inventoryProxyInput" placeholder="https://script.google.com/macros/s/你的部署ID/exec">
+      </div>
+      <div class="field">
+        <label>庫存代理 Token</label>
+        <input id="inventoryTokenInput">
+      </div>
+      <div class="settings-note">
+        主機與配件 Google Sheet 不需要公開。Apps Script 會用你的 Google 權限讀取表格，報表只透過這個代理網址更新庫存。
+      </div>
+    </div>
+    <div class="settings-foot">
+      <button class="export-btn" onclick="resetSourceSettings()">重設</button>
+      <button class="run-btn" onclick="saveSourceSettings()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<div id="paneApple" class="tab-pane active">
+  <main class="main">
+  <div class="upload-panel">
+    <div class="upload-slot inv-slot filled" id="slotInvApple">
+      <div class="slot-info"><div class="slot-type">主機庫存表 Google Sheets</div><div class="slot-name ready" id="slotInvNameApple">尚未更新</div></div>
+    </div>
+    <div class="upload-slot filled" id="slotSLApple">
+      <div class="slot-info">
+        <div class="slot-type">SHOPLINE 即時 API</div>
+        <div class="slot-name ready" id="slotSLNameApple">尚未更新</div>
+      </div>
+    </div>
+    <button class="run-btn" id="runBtnApple" onclick="runAutoApple()">即時更新</button>
+  </div>
+  <div id="errorMsgApple" class="error-msg"></div>
+  <div class="status-bar" id="statusBarApple"><div class="spinner"></div><span id="statusTextApple">處理中…</span></div>
+  <div id="resultsApple" style="display:none">
+    <div class="summary-cards" id="summaryCardsApple" style="grid-template-columns:repeat(5,1fr)"></div>
+    <div class="result-section">
+      <div class="result-header" onclick="toggleApple('bodyWarn','chevWarn')">
+        <div class="result-header-left"><span class="result-tag tag-warn">需調整</span><span class="result-title">數量有差異，需更新 Shopline</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="countWarn"></span><span class="chevron open" id="chevWarn">▼</span></div>
+      </div>
+      <div class="result-body open" id="bodyWarn">
+        <table><thead><tr>
+          <th>ERP條碼（款式貨號）</th><th>商品名稱</th><th>款式</th>
+          <th style="text-align:center">Shopline 目前數量</th><th style="text-align:center">庫存可賣台數</th>
+          <th style="text-align:center">差異</th><th style="text-align:center">建議填入增減數量</th><th>差異原因</th>
+        </tr></thead><tbody id="tbodyWarn"></tbody></table>
+      </div>
+    </div>
+    <div class="result-section">
+      <div class="result-header" onclick="toggleApple('bodyPrice','chevPrice')">
+        <div class="result-header-left"><span class="result-tag tag-pink">價格不符</span><span class="result-title">Shopline 特價與庫存進階售價不一致</span></div>
+        <div style="display:flex;align-items:center;gap:9px">
+          <button class="apply-btn" id="applyPriceBtnApple" onclick="event.stopPropagation();applyApplePrices()">套用價格</button>
+          <span class="result-count" id="countPrice"></span><span class="chevron open" id="chevPrice">▼</span>
+        </div>
+      </div>
+      <div class="result-body open" id="bodyPrice">
+        <table><thead><tr>
+          <th>ERP條碼（款式貨號）</th><th>商品名稱</th><th>款式</th>
+          <th style="text-align:center">Shopline 特價</th>
+          <th style="text-align:center">庫存進階售價</th>
+          <th style="text-align:center">差異</th>
+        </tr></thead><tbody id="tbodyPrice"></tbody></table>
+      </div>
+    </div>
+
+    <div class="result-section">
+      <div class="result-header" onclick="toggleApple('bodyInfo','chevInfo')">
+        <div class="result-header-left"><span class="result-tag tag-info">待上架</span><span class="result-title">庫存可賣，Shopline 尚未建立</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="countInfo"></span><span class="chevron open" id="chevInfo">▼</span></div>
+      </div>
+      <div class="result-body open" id="bodyInfo">
+        <table><thead><tr>
+          <th>ERP條碼（款式貨號）</th><th>型號</th><th style="text-align:center">顏色</th><th style="text-align:center">類別</th><th style="text-align:center">整體等級</th><th style="text-align:center">螢幕等級</th><th style="text-align:center">機身等級</th><th style="text-align:center">進階售價</th><th style="text-align:center">可賣台數</th><th style="text-align:center">上架狀態</th>
+        </tr></thead><tbody id="tbodyInfo"></tbody></table>
+      </div>
+    </div>
+    <div class="result-section">
+      <div class="result-header" onclick="toggleApple('bodyFlagged','chevFlagged')">
+        <div class="result-header-left"><span class="result-tag tag-red">反向排查</span><span class="result-title">庫存表已標記「Shopline電商」，但 Shopline 後台找不到</span><span class="info-icon" onclick="event.stopPropagation();document.getElementById('ruleBoxFlagged').classList.toggle('open')">i</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="countFlagged"></span><span class="chevron open" id="chevFlagged">▼</span></div>
+      </div>
+      <div class="rule-box" id="ruleBoxFlagged">
+        <strong>規則說明：</strong>
+        跟上面「待上架」不同方向的排查：這裡不看「販售狀態」是否為現貨，只要主機庫存表「電商平台上架狀態」欄位有勾選「Shopline電商」，且該筆不是已售出，但在 Shopline 匯出檔案中「查無此ERP」或「有資料但未勾選上架（草稿/下架狀態）」，就會列在此表。
+        <ul><li>已排除「販售狀態＝已售出」的紀錄，避免售出品被誤判為需要上架。</li><li>「Shopline 狀態」欄位會標示是完全查無資料，還是匯出檔裡有資料但實際沒上架（這種最容易被忽略，例如商品建立成草稿忘記發布）。</li><li>常見原因：販售狀態尚未改成現貨、電商平台上架狀態勾選錯誤、或商品確實漏上架/漏發布。</li><li>可對照「目前販售狀態」欄位判斷是否為狀態誤植，再決定是否要補上架。</li><li>同一個 ERP 條碼可能對應多台不同貨號（序號）的機器，「貨號」欄位會列出目前尚有庫存的貨號，方便對照查找特定台機。</li></ul>
+      </div>
+      <div class="result-body open" id="bodyFlagged">
+        <table><thead><tr>
+          <th>ERP條碼（款式貨號）</th><th>貨號</th><th>型號</th><th style="text-align:center">顏色</th><th style="text-align:center">整體等級</th><th style="text-align:center">進階售價</th><th style="text-align:center">台數</th><th>目前販售狀態</th><th>電商平台上架狀態（標記值）</th><th>Shopline 狀態</th>
+        </tr></thead><tbody id="tbodyFlagged"></tbody></table>
+      </div>
+    </div>
+    <div class="result-section">
+      <div class="result-header" onclick="toggleApple('bodyOk','chevOk')">
+        <div class="result-header-left"><span class="result-tag tag-ok">已一致</span><span class="result-title">Shopline 數量已與庫存表一致</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="countOk"></span><span class="chevron" id="chevOk">▼</span></div>
+      </div>
+      <div class="result-body" id="bodyOk">
+        <table><thead><tr>
+          <th>ERP條碼（款式貨號）</th><th>商品名稱</th><th>款式</th><th style="text-align:center">數量</th>
+        </tr></thead><tbody id="tbodyOk"></tbody></table>
+      </div>
+    </div>
+    <div class="actions-row"><button class="export-btn" onclick="exportCSVApple()">匯出 CSV</button></div>
+    <div class="ts" id="reportTsApple"></div>
+  </div>
+</main>
+</div>
+<div id="paneAcc" class="tab-pane">
+  <main class="main">
+  <div class="upload-panel">
+    <div class="upload-slot inv-slot filled" id="slotInvAcc">
+      <div class="slot-info"><div class="slot-type">配件庫存表 Google Sheets</div><div class="slot-name ready" id="slotInvNameAcc">尚未更新</div></div>
+    </div>
+    <div class="upload-slot filled" id="slotSLAcc">
+      <div class="slot-info"><div class="slot-type">SHOPLINE 即時 API</div><div class="slot-name ready" id="slotSLNameAcc">尚未更新</div></div>
+    </div>
+    <button class="run-btn" id="runBtnAcc" onclick="runAutoAcc()">即時更新</button>
+  </div>
+  <div id="errorMsgAcc" class="error-msg"></div>
+  <div class="status-bar" id="statusBarAcc"><div class="spinner"></div><span id="statusTextAcc">處理中…</span></div>
+  <div id="resultsAcc" style="display:none">
+    <div class="summary-cards" id="summaryCardsAcc" style="grid-template-columns:repeat(5,1fr)"></div>
+    <div class="result-section">
+      <div class="result-header" onclick="toggleAcc('body5','chev5')">
+        <div class="result-header-left"><span class="result-tag tag-yellow">新品未上架</span><span class="result-title">配件表「電商平台上架」標示為新品未上架或新品待上架</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count5"></span><span class="chevron open" id="chev5">▼</span></div>
+      </div>
+      <div class="result-body open" id="body5">
+        <table><thead><tr><th>產品編號/條碼</th><th>商品名稱</th><th>分頁</th><th style="text-align:center">辦公室＋大安庫存</th></tr></thead>
+        <tbody id="tbody5"></tbody></table>
+      </div>
+    </div>
+    <div class="result-section">
+      <div class="result-header" onclick="toggleAcc('body1a','chev1a')">
+        <div class="result-header-left"><span class="result-tag tag-red">shopline找不到</span><span class="result-title">配件表標示 Shopline線上，但 Shopline 找不到</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count1a"></span><span class="chevron open" id="chev1a">▼</span></div>
+      </div>
+      <div class="result-body open" id="body1a">
+        <table><thead><tr><th>產品編號/條碼</th><th>商品名稱</th><th>分頁</th><th style="text-align:center">Shopline 數量</th><th style="text-align:center">辦公室＋大安</th></tr></thead>
+        <tbody id="tbody1a"></tbody></table>
+      </div>
+    </div>
+    <div class="result-section">
+      <div class="result-header" onclick="toggleAcc('body1b','chev1b')">
+        <div class="result-header-left"><span class="result-tag tag-orange">配件表狀態需調</span><span class="result-title">Shopline 網店有上架，但配件表未標示 Shopline線上</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count1b"></span><span class="chevron" id="chev1b">▼</span></div>
+      </div>
+      <div class="result-body" id="body1b">
+        <table><thead><tr><th>產品編號/條碼</th><th>商品名稱</th><th>分頁</th><th>配件表上架欄</th><th style="text-align:center">Shopline 數量</th><th style="text-align:center">辦公室＋大安</th></tr></thead>
+        <tbody id="tbody1b"></tbody></table>
+      </div>
+    </div>
+    <div class="result-section is-hidden">
+      <div class="result-header" onclick="toggleAcc('body2','chev2')">
+        <div class="result-header-left"><span class="result-tag tag-pink">特價不符</span><span class="result-title">Shopline 特價（或原價）與配件表建議售價不一致</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count2"></span><span class="chevron open" id="chev2">▼</span></div>
+      </div>
+      <div class="result-body open" id="body2">
+        <table><thead><tr><th>產品編號/條碼</th><th>商品名稱</th><th style="text-align:center">Shopline 特價</th><th style="text-align:center">建議售價</th><th style="text-align:center">差異</th><th style="text-align:center">Shopline 數量</th><th style="text-align:center">辦公室＋大安</th></tr></thead>
+        <tbody id="tbody2"></tbody></table>
+      </div>
+    </div>
+    <div class="result-section">
+      <div class="result-header" onclick="toggleAcc('body3','chev3')">
+        <div class="result-header-left"><span class="result-tag tag-blue">數量不符</span><span class="result-title">Shopline 數量與配件表辦公室＋大安庫存不一致</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count3"></span><span class="chevron" id="chev3">▼</span></div>
+      </div>
+      <div class="result-body" id="body3">
+        <table><thead><tr><th>產品編號/條碼</th><th>商品名稱</th><th style="text-align:center">Shopline 數量</th><th style="text-align:center">辦公室＋大安庫存</th><th style="text-align:center">差異</th><th style="text-align:center">建議增減</th></tr></thead>
+        <tbody id="tbody3"></tbody></table>
+      </div>
+    </div>
+    <div class="result-section">
+      <div class="result-header" onclick="toggleAcc('body4','chev4')">
+        <div class="result-header-left"><span class="result-tag tag-purple">預購異常</span><span class="result-title">配件表不可預購，但 SHOPLINE 預購仍開啟</span><span class="info-icon" onclick="event.stopPropagation();document.getElementById('ruleBox4').classList.toggle('open')">i</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="count4"></span><span class="chevron open" id="chev4">▼</span></div>
+      </div>
+      <div class="rule-box" id="ruleBox4">
+        <strong>規則說明：</strong>
+        只列出配件庫存表 I 欄「公司狀態」為「不備貨」或「售完不補」，但 SHOPLINE 預購欄位仍為開啟的 SKU。
+      </div>
+      <div class="result-body open" id="body4">
+        <table><thead><tr><th>產品編號/條碼</th><th>商品名稱</th><th style="text-align:center">原因</th><th style="text-align:center">公司狀態</th><th style="text-align:center">建議動作</th><th style="text-align:center">Shopline 數量</th><th style="text-align:center">辦公室＋大安</th></tr></thead>
+        <tbody id="tbody4"></tbody></table>
+      </div>
+    </div>
+    <div class="actions-row"><button class="export-btn" onclick="exportCSVAcc()">匯出 CSV</button></div>
+    <div class="ts" id="reportTsAcc"></div>
+  </div>
+</main>
+</div>
+
+<script>
+let activeTab='apple';
+function switchTab(tab) {
+  activeTab=tab;
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active', (tab==='apple'&&i===0)||(tab==='acc'&&i===1)));
+  document.getElementById('paneApple').classList.toggle('active', tab==='apple');
+  document.getElementById('paneAcc').classList.toggle('active', tab==='acc');
+  // 更新 header 狀態顯示
+  if(tab==='apple') updateHeaderApple();
+  else updateHeaderAcc();
+}
+
+function runActiveTab(){
+  return runAllInventory();
+}
+
+async function runAllInventory(){
+  hideErrorApple();
+  hideErrorAcc();
+  setRunBusy(true);
+  document.getElementById('invDot').className='dot';
+  document.getElementById('invStatusText').textContent='全部更新中';
+  document.getElementById('statusBarApple').style.display='flex';
+  document.getElementById('statusTextApple').textContent='讀取主機庫存…';
+  document.getElementById('statusBarAcc').style.display='flex';
+  document.getElementById('statusTextAcc').textContent='讀取配件庫存…';
+  try{
+    const [appleRows,accRows]=await Promise.all([
+      fetchInventoryRows('apple',LIVE_SOURCES.appleSheetUrl),
+      fetchInventoryRows('acc',LIVE_SOURCES.accSheetUrl)
+    ]);
+    inventoryDataApple=buildAppleInventoryFromRows(appleRows);
+    accDataAcc=buildAccInventoryFromRows(accRows,'配件');
+    document.getElementById('slotInvNameApple').textContent=formatAppleInventoryStatus(appleRows,inventoryDataApple);
+    document.getElementById('slotInvNameAcc').textContent=formatInventoryStatus(accRows,Object.keys(accDataAcc||{}).length,'SKU');
+    document.getElementById('statusTextApple').textContent='讀取 SHOPLINE 商品資料，資料較多可能需要 1-2 分鐘…';
+    document.getElementById('statusTextAcc').textContent='讀取 SHOPLINE 商品資料，資料較多可能需要 1-2 分鐘…';
+    document.getElementById('slotSLNameApple').textContent='讀取中';
+    document.getElementById('slotSLNameAcc').textContent='讀取中';
+
+    const slMap=await fetchShoplineMap();
+    const shoplineCount=Object.keys(slMap).length;
+    document.getElementById('slotSLNameApple').textContent=`${shoplineCount} 個 SKU`;
+    document.getElementById('slotSLNameAcc').textContent=`${shoplineCount} 個 SKU`;
+    document.getElementById('statusTextApple').textContent='比對主機庫存…';
+    await runComparisonAppleWithMap(slMap);
+    document.getElementById('statusTextAcc').textContent='比對配件庫存…';
+    await runComparisonAccWithMap(slMap);
+    if(activeTab==='apple') updateHeaderApple();
+    else updateHeaderAcc();
+  }catch(err){
+    showErrorApple(`即時更新失敗：${err.message}`);
+    showErrorAcc(`即時更新失敗：${err.message}`);
+    document.getElementById('invDot').className='dot err';
+    document.getElementById('invStatusText').textContent='更新失敗';
+  }finally{
+    document.getElementById('statusBarApple').style.display='none';
+    document.getElementById('statusBarAcc').style.display='none';
+    setRunBusy(false);
+  }
+}
+
+function setRunBusy(isBusy){
+  document.body.classList.toggle('is-updating',isBusy);
+  ['runBtnApple','runBtnAcc','topRunBtn'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(!btn)return;
+    btn.disabled=isBusy;
+    btn.innerHTML=isBusy?'<span class="btn-spinner"></span>更新中':'即時更新';
+  });
+}
+
+function updateHeaderApple() {
+  const dot=document.getElementById('invDot');
+  const txt=document.getElementById('invStatusText');
+  if(inventoryDataApple) {
+    dot.className='dot live';
+    txt.textContent='主機已更新｜可賣 '+inventoryDataApple.avail+' 台';
+  } else {
+    dot.className='dot';
+    txt.textContent='主機待更新';
+  }
+}
+
+function updateHeaderAcc() {
+  const dot=document.getElementById('invDot');
+  const txt=document.getElementById('invStatusText');
+  if(accDataAcc) {
+    dot.className='dot live';
+    const total=Object.keys(accDataAcc).length;
+    txt.textContent='配件已更新｜'+total+' SKU';
+  } else {
+    dot.className='dot';
+    txt.textContent='配件待更新';
+  }
+}
+
+
+// ══ 全域變數 ══
+var inventoryDataApple=null, shoplineFilesApple=[], lastResultApple=null;
+var accDataAcc=null, shoplineFilesAcc=[], lastResultAcc=null;
+
+const DEFAULT_INVENTORY_PROXY_API='https://script.google.com/macros/s/AKfycbw-D7McUqWo2-ijzeZwPDYQ-Qaty39LinP5oFU9toNM5LpE0sHViglDO7H8mqb1O9SU/exec';
+const DEFAULT_INVENTORY_PROXY_TOKEN='0e294f4f92e6bf57be19ba1813e85436a3622f952efad560';
+
+function resetInitialView(){
+  document.body.classList.remove('is-updating');
+  setRunBusy(false);
+  document.getElementById('invDot').className='dot';
+  document.getElementById('invStatusText').textContent='待更新';
+  document.getElementById('statusBarApple').style.display='none';
+  document.getElementById('statusBarAcc').style.display='none';
+  hideErrorApple();
+  hideErrorAcc();
+}
+
+document.addEventListener('DOMContentLoaded', resetInitialView);
+
+function normalizeAppsScriptUrl(value){
+  const text=String(value||'').trim();
+  if(!text)return '';
+  if(text.endsWith('/exec'))return text;
+  if(text.endsWith('/dev'))return text.replace(/\/dev$/,'/exec');
+  if(text.includes('/macros/s/'))return text.replace(/\/$/,'')+'/exec';
+  return text;
+}
+
+const LIVE_SOURCES={
+  appleSheetUrl:'https://docs.google.com/spreadsheets/d/1wKjTXRqq8FHozqdDRBIILFPDVfwB2HWLZF606xwvYK8/edit?gid=471171723#gid=471171723',
+  accSheetUrl:'https://docs.google.com/spreadsheets/d/1B8P0TMa5_tTHhnC2D9jXAcPh9ApwAs3r4nWJOZrVzJc/edit?gid=2002908992#gid=2002908992',
+  inventoryApi:DEFAULT_INVENTORY_PROXY_API,
+  inventoryToken:DEFAULT_INVENTORY_PROXY_TOKEN,
+  shoplineApi:'https://shopline-report-api.ting-macbook.workers.dev/shopline-stock?pages=30'
+};
+
+async function runAutoApple(){
+  return runAllInventory();
+}
+
+async function runAutoAcc(){
+  return runAllInventory();
+}
+
+function openSourceSettings(){
+  document.getElementById('inventoryProxyInput').value=LIVE_SOURCES.inventoryApi||'';
+  document.getElementById('inventoryTokenInput').value=LIVE_SOURCES.inventoryToken||'';
+  document.getElementById('sourceSettings').style.display='flex';
+}
+
+function closeSourceSettings(){
+  document.getElementById('sourceSettings').style.display='none';
+}
+
+function saveSourceSettings(){
+  LIVE_SOURCES.inventoryApi=normalizeAppsScriptUrl(document.getElementById('inventoryProxyInput').value);
+  LIVE_SOURCES.inventoryToken=document.getElementById('inventoryTokenInput').value.trim();
+  localStorage.setItem('INVENTORY_PROXY_API',LIVE_SOURCES.inventoryApi);
+  localStorage.setItem('INVENTORY_PROXY_TOKEN',LIVE_SOURCES.inventoryToken);
+  closeSourceSettings();
+}
+
+function resetSourceSettings(){
+  localStorage.removeItem('INVENTORY_PROXY_API');
+  localStorage.removeItem('INVENTORY_PROXY_TOKEN');
+  LIVE_SOURCES.inventoryApi=DEFAULT_INVENTORY_PROXY_API;
+  LIVE_SOURCES.inventoryToken=DEFAULT_INVENTORY_PROXY_TOKEN;
+  document.getElementById('inventoryProxyInput').value=LIVE_SOURCES.inventoryApi;
+  document.getElementById('inventoryTokenInput').value=LIVE_SOURCES.inventoryToken;
+}
+
+function fetchInventoryRows(source,fallbackSheetUrl){
+  if(LIVE_SOURCES.inventoryApi){
+    return fetchInventoryProxy(source);
+  }
+  return fetchGoogleSheetObjects(fallbackSheetUrl);
+}
+
+async function fetchInventoryProxy(source){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),120000);
+  try{
+    const url=new URL(LIVE_SOURCES.inventoryApi);
+    url.searchParams.set('source',source);
+    url.searchParams.set('token',LIVE_SOURCES.inventoryToken);
+    url.searchParams.set('_',Date.now());
+    const res=await fetch(url.toString(),{cache:'no-store',signal:controller.signal});
+    if(!res.ok)throw new Error(`Apps Script 回應 ${res.status}`);
+    const payload=await res.json();
+    if(!payload||payload.ok===false)throw new Error(payload?.error||'Apps Script 回傳格式不正確');
+    const rawRows=Array.isArray(payload.rows)?payload.rows:[];
+    const rows=source==='acc'?normalizeInventoryProxyRows(rawRows):rawRows;
+    Object.defineProperty(rows,'__meta',{value:{sheetCount:payload.sheet_count||0,sheets:payload.sheets||[],generatedAt:payload.generated_at||''},enumerable:false});
+    return rows;
+  }catch(err){
+    if(err.name==='AbortError')throw new Error('Apps Script 庫存代理讀取逾時，配件分頁較多時請確認已部署最新的代理程式');
+    throw err;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+function formatInventoryStatus(rows,skuCount,label){
+  const meta=rows&&rows.__meta?rows.__meta:{};
+  const sheetText=meta.sheetCount&&meta.sheetCount>1?` / ${meta.sheetCount} 分頁`:'';
+  return `${rows.length} 列 / ${skuCount} ${label}${sheetText}`;
+}
+
+function formatAppleInventoryStatus(rows,data){
+  const sellableUnits=Number(data?.avail||0);
+  const erpCount=Object.keys(data?.erpMap||{}).length;
+  return `${rows.length} 列 / ${sellableUnits} 台可賣 / ${erpCount} ERP`;
+}
+
+function fetchGoogleSheetObjects(url){
+  return new Promise((resolve,reject)=>{
+    const cb='__sheet_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const script=document.createElement('script');
+    const timer=setTimeout(()=>{cleanup();reject(new Error('Google Sheets 讀取逾時，請確認分頁可公開讀取'));},18000);
+    window[cb]=payload=>{cleanup();try{resolve(googleTableToObjects(payload.table));}catch(err){reject(err);}};
+    script.onerror=()=>{cleanup();reject(new Error('Google Sheets 載入失敗'));};
+    script.src=toGvizUrl(url,cb);
+    document.head.appendChild(script);
+    function cleanup(){clearTimeout(timer);delete window[cb];script.remove();}
+  });
+}
+
+function toGvizUrl(url,cb){
+  const u=new URL(url);
+  const id=(u.pathname.match(/\/spreadsheets\/d\/([^/]+)/)||[])[1];
+  const gid=u.searchParams.get('gid')||(u.hash.match(/gid=([^&]+)/)||[])[1]||'0';
+  if(!id)throw new Error('Google Sheets 網址格式不正確');
+  const out=new URL(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq`);
+  out.searchParams.set('tqx',`out:json;responseHandler:${cb}`);
+  out.searchParams.set('gid',gid);
+  out.searchParams.set('_',Date.now());
+  return out.toString();
+}
+
+function googleTableToObjects(table){
+  if(!table||!Array.isArray(table.rows))return[];
+  const raw=table.rows.map(r=>(r.c||[]).map(c=>c?(c.f??c.v??''):''));
+  if(!raw.length)return[];
+  const headers=raw[0].map((v,i)=>String(v||`欄位${i+1}`).trim());
+  return raw.slice(1).map(row=>{
+    const obj={};
+    headers.forEach((h,i)=>obj[h||`欄位${i+1}`]=row[i]??'');
+    return obj;
+  }).filter(row=>Object.values(row).some(v=>String(v).trim()!==''));
+}
+
+function sortedGenericKeys(row){
+  return Object.keys(row||{})
+    .filter(key=>/^欄位\d+$/.test(key))
+    .sort((a,b)=>Number(a.replace('欄位',''))-Number(b.replace('欄位','')));
+}
+
+function normalizeInventoryProxyRows(rows){
+  if(!Array.isArray(rows)||!rows.length)return[];
+  if(!rows.some(row=>sortedGenericKeys(row).length))return rows;
+
+  const groups=new Map();
+  rows.forEach(row=>{
+    const key=String(row.__sheetId||row.__sheetName||'default');
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(row);
+  });
+
+  const normalized=[];
+  groups.forEach(group=>{
+    const groupSheetName=String(group[0]?.__sheetName||'').trim();
+    if(typeof SKIP_SHEETS!=='undefined'&&SKIP_SHEETS.has(groupSheetName))return;
+
+    let headerIndex=-1;
+    let headerKeys=[];
+    let headers=[];
+
+    for(let i=0;i<Math.min(group.length,80);i++){
+      const keys=sortedGenericKeys(group[i]);
+      if(!keys.length)continue;
+      const values=keys.map(key=>String(group[i][key]||'').trim());
+      const text=normalizeKeyText(values.join('|'));
+      const hasSku=text.includes('產品編號')||text.includes('國際條碼')||text.includes('產品條碼')||text.includes('sku');
+      const hasName=text.includes('商品名稱')||text.includes('商品名稱規格')||text.includes('品名');
+      if(hasSku&&hasName){
+        headerIndex=i;
+        headerKeys=keys;
+        headers=values.map((value,index)=>value||`欄位${index+1}`);
+        break;
+      }
+    }
+
+    if(headerIndex<0){
+      group.forEach(row=>{
+        const values=orderedProxyValues(row);
+        const fixed=genericAccRowToObject(values,String(row.__sheetName||'').trim(),row.__sheetId);
+        if(fixed)normalized.push(fixed);
+      });
+      return;
+    }
+
+    for(let i=headerIndex+1;i<group.length;i++){
+      const item={__sheetName:group[i].__sheetName,__sheetId:group[i].__sheetId};
+      headerKeys.forEach((key,index)=>{
+        item[headers[index]||`欄位${index+1}`]=group[i][key]??'';
+      });
+      if(Object.keys(item).some(key=>!key.startsWith('__')&&String(item[key]).trim()!=='')){
+        normalized.push(item);
+      }
+    }
+  });
+  return normalized.length?normalized:rows;
+}
+
+function orderedProxyValues(row){
+  return Object.entries(row||{})
+    .filter(([key])=>!String(key).startsWith('__'))
+    .map(([,value])=>value??'');
+}
+
+function genericAccRowToObject(values,sheetName,sheetId){
+  const skuIndex=values.slice(0,6).findIndex(value=>looksLikeSku(value));
+  if(skuIndex<0)return null;
+  const offset=skuIndex-1;
+  const sku=String(values[skuIndex]||'').trim();
+  const name=String(values[skuIndex+1]||'').trim();
+  if(!looksLikeSku(sku)||!name||/商品名稱|產品編號|國際條碼/.test(name+sku))return null;
+  const isHippo=sheetName.includes('河馬')||sheetName.includes('SUPCASE');
+  const lCols=(isHippo?[28,29,30,31]:[27,28,29,30]).map(index=>index+offset);
+  const mCols=(isHippo?[23,24,25,26]:[22,23,24,25]).map(index=>index+offset);
+  const sum=(indexes)=>toNum(values[indexes[0]])+toNum(values[indexes[1]])-toNum(values[indexes[2]])-toNum(values[indexes[3]]);
+  return {
+    __sheetName:sheetName,
+    __sheetId:sheetId,
+    '電商平台':values[skuIndex-1]??'',
+    '產品編號':sku,
+    '商品名稱':name,
+    '顏色':values[skuIndex+2]??'',
+    '建議售價':values[skuIndex+3]??'',
+    '是否停產':values[skuIndex+6]??'',
+    '公司狀態':values[skuIndex+7]??'',
+    '辦公室＋大安庫存':Math.round(sum(lCols)+sum(mCols))
+  };
+}
+
+function looksLikeSku(value){
+  const text=String(value||'').trim();
+  return /^[A-Za-z0-9][A-Za-z0-9_-]{3,}$/.test(text);
+}
+
+function normalizeKeyText(value){
+  return String(value||'')
+    .replace(/\s+/g,'')
+    .replace(/[()（）/／＋+・:：_-]/g,'')
+    .toLowerCase();
+}
+
+function findObjKey(row,labels){
+  const keys=Object.keys(row||{});
+  const normalizedLabels=labels.map(normalizeKeyText);
+  return keys.find(key=>{
+    const normalizedKey=normalizeKeyText(key);
+    return normalizedLabels.some(label=>normalizedKey.includes(label));
+  })||'';
+}
+
+function findRowsKey(rows,labels){
+  for(const row of (rows||[])){
+    const sheetName=String(row.__sheetName||'').trim();
+    if(typeof SKIP_SHEETS!=='undefined'&&SKIP_SHEETS.has(sheetName))continue;
+    const key=findObjKey(row,labels);
+    if(key)return key;
+  }
+  return '';
+}
+
+function buildAppleInventoryFromRows(rows){
+  const sample=rows[0]||{};
+  const KEY_STATUS=findObjKey(sample,['販售狀態']);
+  const KEY_ERP=findObjKey(sample,['ERP條碼']);
+  const KEY_MODEL=findObjKey(sample,['型號']);
+  const KEY_COLOR=findObjKey(sample,['顏色']);
+  const KEY_PRICE=findObjKey(sample,['進階售價']);
+  const KEY_PLAT=findObjKey(sample,['電商平台上架狀態']);
+  const KEY_SKU=findObjKey(sample,['貨號']);
+  const erpMap={},reasonMap={},flaggedMap={};
+  let avail=0;
+  rows.forEach(row=>{
+    const erp=String(row[KEY_ERP]||'').trim();
+    if(!erp)return;
+    const status=String(row[KEY_STATUS]||'').trim();
+    const platVal=String(row[KEY_PLAT]||'').trim();
+    if(platVal.includes('Shopline電商')&&status!=='已售出'){
+      if(!flaggedMap[erp])flaggedMap[erp]={erp,model:String(row[KEY_MODEL]||'').trim(),color:String(row[KEY_COLOR]||'').trim(),cat:String(row['類別']||'').trim(),gradeO:String(row['整體等級']||'').trim(),gradeS:String(row['螢幕等級']||'').trim(),gradeB:String(row['機身等級']||'').trim(),price:toNum(row[KEY_PRICE]),count:0,statuses:new Set(),platStatuses:new Set(),skus:new Set()};
+      flaggedMap[erp].count++;
+      if(status)flaggedMap[erp].statuses.add(status);
+      if(platVal)flaggedMap[erp].platStatuses.add(platVal);
+      if(row[KEY_SKU])flaggedMap[erp].skus.add(String(row[KEY_SKU]).trim());
+    }
+    if(status.includes('現貨')){
+      if(!erpMap[erp])erpMap[erp]={erp,model:String(row[KEY_MODEL]||'').trim(),color:String(row[KEY_COLOR]||'').trim(),cat:String(row['類別']||'').trim(),gradeO:String(row['整體等級']||'').trim(),gradeS:String(row['螢幕等級']||'').trim(),gradeB:String(row['機身等級']||'').trim(),price:toNum(row[KEY_PRICE]),count:0};
+      erpMap[erp].count++;avail++;
+    }else if(status&&status!=='已售出'){
+      if(!reasonMap[erp])reasonMap[erp]={};
+      reasonMap[erp][status]=(reasonMap[erp][status]||0)+1;
+    }
+  });
+  return{erpMap,avail,reasonMap,flaggedMap};
+}
+
+function buildAccInventoryFromRows(rows,sheetName){
+  const skuK=findRowsKey(rows,['產品編號','國際條碼','產品條碼','條碼','sku']);
+  const platK=findRowsKey(rows,['電商平台','平台上架','上架狀態']);
+  const nameK=findRowsKey(rows,['商品名稱','品名']);
+  const colorK=findRowsKey(rows,['顏色','款式','規格']);
+  const priceK=findRowsKey(rows,['建議售價','售價','價格']);
+  const stockK=findRowsKey(rows,['辦公室＋大安庫存','辦公室+大安庫存','辦公室大安庫存','庫存']);
+  const stopK=findRowsKey(rows,['是否停產','廠商狀態']);
+  const coK=findRowsKey(rows,['公司狀態']);
+  const items={};
+  rows.forEach(row=>{
+    const sourceSheet=String(row.__sheetName||row.__sheet||row.sheet||sheetName||'配件').trim();
+    if(typeof SKIP_SHEETS!=='undefined'&&SKIP_SHEETS.has(sourceSheet))return;
+    const sku=String(row[skuK]||'').trim();
+    if(!sku||sku==='nan'||sku.includes('產品編號')||sku.includes('國際條碼'))return;
+    const platform=String(row[platK]||'').trim();
+    const baseName=String(row[nameK]||'').trim();
+    const color=String(row[colorK]||'').trim();
+    const co=String(row[coK]||'').trim();
+    items[sku]={name:color?`${baseName}｜${color}`:baseName,platform,price:toNum(row[priceK]),stock:Math.round(toNum(row[stockK])),stop:String(row[stopK]||'').trim(),co,sheet:sourceSheet,shouldShopline:platform.includes('Shopline線上'),canPreorder:!isNoStockStatus(co)};
+  });
+  return items;
+}
+
+async function fetchShoplineMap(){
+  const snapshot=window.SHOPLINE_STOCK_SNAPSHOT;
+  if(snapshot)return shoplinePayloadToMap(snapshot);
+  if(!LIVE_SOURCES.shoplineApi)throw new Error('尚未設定 SHOPLINE proxy API');
+  let res;
+  try{
+    res=await fetch(LIVE_SOURCES.shoplineApi,{cache:'no-store'});
+  }catch(err){
+    throw new Error(`SHOPLINE proxy 載入失敗。Cloudflare 已允許 ${location.origin} 時，通常是 SHOPLINE 30 頁資料讀取逾時，請再按一次即時更新`);
+  }
+  if(!res.ok)throw new Error(`SHOPLINE API 回應 ${res.status}`);
+  return shoplinePayloadToMap(await res.json());
+}
+
+function shoplinePayloadToMap(payload){
+  const items=Array.isArray(payload)?payload:(payload.items||payload.data||payload.products||[]);
+  const map={};
+  const preorderSkuSet=new Set();
+  const activePreorderSkuSet=new Set();
+  const meta={
+    saleFieldSeen:Boolean(payload?.sale_field_seen||payload?.fields?.sale_price),
+    preorderFieldSeen:Boolean(payload?.preorder_field_seen||payload?.fields?.preorder),
+    workerVersion:payload?.worker_version||''
+  };
+  items.forEach(product=>{
+    const name=translated(product.title_translations)||product.name||product.title||'';
+    const online=product.status==='active'||product.isOnline===true||product.is_online===true;
+    const variants=product.variations||product.variants||[];
+    const productId=recordId(product,['product_id','productId','id','_id','uuid']);
+    if(hasAnyField(product,['price_sale','sale_price']))meta.saleFieldSeen=true;
+    if(hasAnyField(product,['is_preorder','preorder','out_of_stock_orderable','preorder_limit']))meta.preorderFieldSeen=true;
+    if(variants.length){
+      variants.forEach(v=>{
+        const sku=String(v.sku||'').trim();
+        if(!sku)return;
+        if(hasAnyField(v,['price_sale','sale_price']))meta.saleFieldSeen=true;
+        if(hasAnyField(v,['is_preorder','preorder','out_of_stock_orderable','preorder_limit']))meta.preorderFieldSeen=true;
+        const qty=stockQuantityFromRecord(v);
+        const salePrice=firstPrice(v.price_sale,v.sale_price,product.price_sale,product.sale_price,v.price,product.price);
+        const regularPrice=firstPrice(v.price,product.price,salePrice);
+        const preorder=preorderFlag(v,product);
+        if(preorder){
+          preorderSkuSet.add(sku);
+          if(online)activePreorderSkuSet.add(sku);
+        }
+        const variationId=recordId(v,['id','_id','variation_id','variant_id','product_variation_id','variationId','variantId','uuid']);
+        upsertShoplineMap(map,sku,{productId:productId||recordId(v,['product_id','productId']),variationId,name,variant:translated(v.fields_translations),qty:Math.round(qty),price:salePrice,regularPrice,slPrice:salePrice,isOnline:online,ws:online?'Y':'',pre:preorder?'Y':''});
+      });
+    }else{
+      const sku=String(product.sku||'').trim();
+      if(!sku)return;
+      const qty=stockQuantityFromRecord(product);
+      const salePrice=firstPrice(product.price_sale,product.sale_price,product.price);
+      const regularPrice=firstPrice(product.price,salePrice);
+      const preorder=preorderFlag(product);
+      if(preorder){
+        preorderSkuSet.add(sku);
+        if(online)activePreorderSkuSet.add(sku);
+      }
+      upsertShoplineMap(map,sku,{productId,variationId:recordId(product,['variation_id','variant_id','product_variation_id','variationId','variantId']),name,variant:'',qty:Math.round(qty),price:salePrice,regularPrice,slPrice:salePrice,isOnline:online,ws:online?'Y':'',pre:preorder?'Y':''});
+    }
+  });
+  meta.preorderSkuCount=preorderSkuSet.size;
+  meta.activePreorderCount=activePreorderSkuSet.size;
+  Object.defineProperty(map,'__meta',{value:meta,enumerable:false});
+  return map;
+}
+
+function translated(obj){
+  if(!obj||typeof obj!=='object')return'';
+  const picked=obj['zh-hant']||obj['zh-tw']||obj.zh||obj.en||Object.values(obj).find(Boolean)||'';
+  return Array.isArray(picked)?picked.filter(Boolean).join(' / '):String(picked||'').trim();
+}
+function hasAnyField(obj,keys){return !!obj&&keys.some(key=>Object.prototype.hasOwnProperty.call(obj,key));}
+function priceValue(v){return typeof v==='object'&&v?toNum(v.dollars??v.amount??v.cents/100):toNum(v);}
+function firstPrice(...values){
+  for(const value of values){
+    const number=priceValue(value);
+    if(number>0)return number;
+  }
+  return 0;
+}
+function preorderFlag(...items){
+  return items.some(item=>item&&(
+    item.is_preorder===true||
+    item.out_of_stock_orderable===true||
+    item.preorder===true||
+    item.allow_preorder===true||
+    item.preorder_enabled===true||
+    item.purchaseable_when_out_of_stock===true||
+    item.purchasable_when_out_of_stock===true||
+    String(item.preorder||'').toUpperCase()==='Y'||
+    String(item.is_preorder||'').toUpperCase()==='Y'||
+    String(item.allow_preorder||'').toUpperCase()==='Y'||
+    String(item.preorder_enabled||'').toUpperCase()==='Y'
+  ));
+}
+function stockQuantityFromRecord(record){
+  const direct=firstNumericValue(record?.quantity,record?.available_quantity,record?.stock,record?.stock_quantity,record?.inventory_quantity,record?.inventory);
+  if(direct!==null)return direct;
+  if(Array.isArray(record?.stocks)&&record.stocks.length){
+    return record.stocks.reduce((sum,stock)=>sum+(firstNumericValue(stock?.quantity,stock?.available_quantity,stock?.stock,stock?.stock_quantity,stock?.inventory_quantity)||0),0);
+  }
+  return 0;
+}
+function firstNumericValue(...values){
+  for(const value of values){
+    if(value===null||value===undefined||value==='')continue;
+    const number=Number(String(value).replace(/,/g,''));
+    if(Number.isFinite(number))return number;
+  }
+  return null;
+}
+function textId(value){
+  if(value===null||value===undefined)return '';
+  if(typeof value==='object'){
+    return textId(value.$oid??value.id??value._id??value.value??value.key);
+  }
+  const text=String(value).trim();
+  return text&&text!=='[object Object]'?text:'';
+}
+function recordId(record,keys){
+  for(const key of keys){
+    const value=textId(record?.[key]);
+    if(value)return value;
+  }
+  return '';
+}
+function isNoStockStatus(value){
+  const text=String(value||'').replace(/\s+/g,'').trim();
+  if(!text)return false;
+  return ['售完不補','不備貨'].some(keyword=>text.includes(keyword));
+}
+function upsertShoplineMap(map,sku,entry){
+  const existing=map[sku];
+  if(!existing||entry.isOnline&&!existing.isOnline||entry.isOnline===existing.isOnline&&entry.qty>existing.qty){
+    map[sku]=entry;
+  }
+}
+function toNum(v){const n=parseFloat(String(v??'').replace(/,/g,''));return isNaN(n)?0:n;}
+
+async function runComparisonAppleWithMap(slMap){
+  const{erpMap}=inventoryDataApple;
+  const availErp=new Set(Object.keys(erpMap));
+  const needFix=[],correct=[];
+  for(const[erp,sl]of Object.entries(slMap)){
+    if(!availErp.has(erp)||!sl.isOnline)continue;
+    const invQ=erpMap[erp].count,diff=invQ-sl.qty;
+    const reasons=inventoryDataApple.reasonMap[erp]||{};
+    const reasonStr=Object.entries(reasons).map(([s,n])=>s+' x'+n).join('、');
+    const invPrice=Number(erpMap[erp].price)||0;
+    const slPrice=sl.slPrice||sl.price||0;
+    const priceDiff=(sl.isOnline&&invPrice>0&&slPrice!==invPrice)?`SL:${slPrice.toLocaleString()} vs 庫存:${invPrice.toLocaleString()}`:'';
+    const entry={erp,productId:sl.productId||'',variationId:sl.variationId||'',name:sl.name,variant:sl.variant,slQ:sl.qty,invQ,diff,model:erpMap[erp].model,color:erpMap[erp].color,reason:reasonStr,priceDiff,slPrice};
+    diff!==0?needFix.push(entry):correct.push(entry);
+  }
+  needFix.sort((a,b)=>a.diff-b.diff);
+  const matched=new Set([...needFix,...correct].map(r=>r.erp));
+  const notFound=Object.values(erpMap).filter(e=>!matched.has(e.erp)).sort((a,b)=>a.model.localeCompare(b.model));
+  const priceWrong=[...needFix,...correct].filter(r=>r.priceDiff).map(r=>({erp:r.erp,productId:r.productId||'',variationId:r.variationId||'',name:r.name,variant:r.variant,slPrice:r.slPrice||0,invPrice:Number(erpMap[r.erp]?.price)||0}));
+  const flaggedNotFound=Object.values(inventoryDataApple.flaggedMap||{}).filter(f=>{const sl=slMap[f.erp];return !sl||!sl.isOnline;}).map(f=>{const sl=slMap[f.erp];return{...f,statuses:[...f.statuses].join('、'),platStatuses:[...f.platStatuses].join('、'),skus:[...f.skus].join('、'),slState:!sl?'Shopline查無此ERP':'Shopline有資料但下架',slFound:!!sl};}).sort((a,b)=>a.model.localeCompare(b.model));
+  lastResultApple={needFix,notFound,correct,priceWrong,flaggedNotFound};
+  renderApple(needFix,notFound,correct,priceWrong,flaggedNotFound);
+}
+
+async function runComparisonAccWithMap(slMap){
+  const apiMeta=slMap.__meta||{};
+  const r1a=[],r1b=[],r2=[],r3=[],r4=[],r5=[];
+  for(const[sku,acc]of Object.entries(accDataAcc)){
+    if(acc.platform.includes('新品未上架')||acc.platform.includes('新品待上架'))r5.push({sku,name:acc.name,sheet:acc.sheet,accStock:acc.stock});
+    const inSL=sku in slMap,sl=slMap[sku]||{};
+    if(acc.shouldShopline&&!inSL)r1a.push({sku,name:acc.name,sheet:acc.sheet,slQty:null,accStock:acc.stock});
+    if(inSL&&sl.isOnline&&!acc.shouldShopline)r1b.push({sku,name:sl.name,sheet:acc.sheet,platform:acc.platform,slQty:sl.qty||0,accStock:acc.stock});
+    if(!inSL)continue;
+    if(apiMeta.saleFieldSeen&&sl.isOnline&&acc.price>0&&(sl.price||sl.slPrice)!==acc.price)r2.push({sku,name:acc.name,slPrice:sl.price||sl.slPrice||0,accPrice:acc.price,diff:(sl.price||sl.slPrice||0)-acc.price,slQty:sl.qty||0,accStock:acc.stock});
+    if(sl.qty!==acc.stock)r3.push({sku,name:acc.name,slQty:sl.qty,accStock:acc.stock,diff:sl.qty-acc.stock});
+    if(sl.pre==='Y'&&!acc.canPreorder){
+      r4.push({
+        sku,
+        name:acc.name||sl.name,
+        stop:acc.stop,
+        co:acc.co,
+        sheet:acc.sheet,
+        reason:'配件表公司狀態為不可預購',
+        action:'關閉 SHOPLINE 預購',
+        slQty:sl.qty||0,
+        accStock:acc.stock
+      });
+    }
+  }
+  lastResultAcc={r1a,r1b,r2,r3,r4,r5,apiMeta};
+  renderAcc(r1a,r1b,r2,r3,r4,r5,apiMeta);
+}
+
+// ══ 主機 JS ══
+
+inventoryDataApple=null; shoplineFilesApple=[]; lastResultApple=null;
+
+function handleInvApple(e){const f=e.target.files[0];if(f)parseInventoryApple(f);}
+function handleSLMultiApple(e){
+  const files=Array.from(e.target.files);
+  if(!files.length)return;
+  shoplineFilesApple=files;
+  // 更新 UI
+  const slot=document.getElementById('slotSLApple');
+  slot.classList.add('filled');
+  document.getElementById('slotSLNameApple').textContent=`已選 ${files.length} 個檔案`;
+  document.getElementById('slotSLNameApple').classList.add('ready');
+  // 顯示檔名標籤
+  const list=document.getElementById('slFileListApple');
+  list.innerHTML=files.map(f=>`<span style="font-size:10px;padding:3px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;color:#16a34a;white-space:nowrap">${f.name.length>18?f.name.slice(0,16)+'…':f.name}</span>`).join('');
+  checkReadyApple();
+}
+
+// ── 庫存表解析（完全模仿 Python pandas header=0 邏輯）
+async function parseInventoryApple(file){
+  const dot=document.getElementById('invDot'), text=document.getElementById('invStatusText');
+  dot.className='dot'; text.textContent='讀取庫存中…';
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    // 找「麥克愛愛庫存合併表」工作表
+    const wsName = wb.SheetNames.find(n=>n.includes('麥克愛愛庫存合併表')) || wb.SheetNames[0];
+    const ws=wb.Sheets[wsName];
+    // 用 header:1 模式，SheetJS 以第一行為 key（等同 pandas header=0）
+    // 但庫存表真正的欄位名在 row 0，所以用 header:1 讓 SheetJS 自動以 row 0 為欄位
+    const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+    // 欄位名直接對應
+    const KEY_STATUS = '販售狀態';
+    const KEY_ERP    = 'ERP條碼';
+    const KEY_MODEL  = '型號';
+    const sampleRow  = rows[0] || {};
+    const KEY_COLOR  = Object.keys(sampleRow).find(k=>k.includes('顏色')) || '顏色';
+    const KEY_PRICE  = Object.keys(sampleRow).find(k=>k.includes('進階售價')) || '進階售價';
+    const KEY_PLAT   = Object.keys(sampleRow).find(k=>k.replace(/\s+/g,'').includes('電商平台上架狀態')) || '電商平台上架狀態';
+
+    const erpMap={};let avail=0;
+    // 反向排查用：不論販售狀態，只要「電商平台上架狀態」有勾選「Shopline電商」，且非已售出，就收錄
+    const KEY_SKU = Object.keys(sampleRow).find(k=>k.includes('貨號')&&!k.includes('ERP')) || '貨號';
+    const flaggedMap={};
+    for(const row of rows){
+      const platVal=String(row[KEY_PLAT]||'');
+      if(!platVal.includes('Shopline電商'))continue;
+      const status=String(row[KEY_STATUS]||'').trim();
+      if(status==='已售出')continue; // 已售出不需要上架，排除
+      const erp=String(row[KEY_ERP]||'').trim();
+      if(!erp)continue;
+      const sku=String(row[KEY_SKU]||'').trim();
+      if(!flaggedMap[erp])flaggedMap[erp]={
+        erp,
+        model:  String(row[KEY_MODEL]||'').trim(),
+        color:  String(row[KEY_COLOR]||'').trim(),
+        cat:    String(row['類別']||'').trim(),
+        gradeO: String(row['整體等級']||'').trim(),
+        gradeS: String(row['螢幕等級']||'').trim(),
+        gradeB: String(row['機身等級']||'').trim(),
+        price:  (function(v){var f=parseFloat(v);return isNaN(f)?0:f;})(row[KEY_PRICE]),
+        count:0, statuses:new Set(), platStatuses:new Set(), skus:new Set()
+      };
+      flaggedMap[erp].count++;
+      if(status)flaggedMap[erp].statuses.add(status);
+      if(platVal.trim())flaggedMap[erp].platStatuses.add(platVal.trim());
+      if(sku)flaggedMap[erp].skus.add(sku);
+    }
+    for(const row of rows){
+      const status=String(row[KEY_STATUS]||'');
+      if(!status.includes('現貨'))continue;
+      const erp=String(row[KEY_ERP]||'').trim();
+      if(!erp)continue;
+      if(!erpMap[erp])erpMap[erp]={
+        erp,
+        model:  String(row[KEY_MODEL]||'').trim(),
+        color:  String(row[KEY_COLOR]||'').trim(),
+        cat:    String(row['類別']||'').trim(),
+        gradeO: String(row['整體等級']||'').trim(),
+        gradeS: String(row['螢幕等級']||'').trim(),
+        gradeB: String(row['機身等級']||'').trim(),
+        price:  (function(v){var f=parseFloat(v);return isNaN(f)?0:f;})(row[KEY_PRICE]),
+        count:0
+      };
+      erpMap[erp].count++;avail++;
+    }
+    // 建立不可賣原因對照表（ERP碼 → 不可賣狀態統計）
+    const reasonMap={};
+    for(const row of rows){
+      const status=String(row[KEY_STATUS]||'');
+      if(status.includes('現貨'))continue; // 跳過可賣的
+      if(status==='已售出'||status==='')continue; // 不顯示已售出
+      const erp=String(row[KEY_ERP]||'').trim();
+      if(!erp)continue;
+      if(!reasonMap[erp])reasonMap[erp]={};
+      reasonMap[erp][status]=(reasonMap[erp][status]||0)+1;
+    }
+    inventoryDataApple={erpMap,avail,reasonMap,flaggedMap};
+    document.getElementById('slotInvApple').classList.add('filled');
+    const nm=document.getElementById('slotInvNameApple');
+    nm.textContent=file.name.length>16?file.name.slice(0,14)+'…':file.name; nm.classList.add('ready');
+    dot.classList.add('live');
+    text.textContent=`庫存已載入｜可賣 ${avail} 台 / ${Object.keys(erpMap).length} 個規格`;
+    checkReadyApple();
+  }catch(err){dot.classList.add('err');text.textContent=`庫存讀取失敗：${err.message}`;}
+}
+
+// ── Shopline 解析（完全模仿 Python pandas header=1 + ffill + drop_duplicates）
+async function parseShoplineApple(files){
+  // 回傳：Map<erp, {name, variant, qty}>，已 drop_duplicates（只取第一筆）
+  const slMap={};
+  for(const file of files){
+    if(!file)continue;
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    // Shopline 有兩行 header（英文+中文），用 header:1 讓 SheetJS 讀原始陣列
+    const raw=XLSX.utils.sheet_to_json(ws,{defval:'',header:1});
+
+    // 找中文 header 行（包含「款式貨號」的那行）
+    let hi=-1;
+    for(let i=0;i<Math.min(raw.length,5);i++){
+      if(raw[i].some(v=>String(v).includes('款式貨號'))){hi=i;break;}
+    }
+    if(hi<0)continue;
+
+    // 建立欄位名→index 的對照表（等同 pandas 的 df.columns）
+    const hdrs=raw[hi].map(v=>String(v));
+    const colIdx={};
+    hdrs.forEach((h,i)=>{ colIdx[h]=i; });
+
+    // 精確找各欄 index（用欄位名稱，不用猜）
+    const vi   = colIdx['款式貨號'] ?? -1;
+    const ski  = colIdx['商品貨號'] ?? -1;
+    const qi   = colIdx['款式數量 (參考用，請勿修改)'] ?? -1;
+    const pqi  = colIdx['數量 (參考用，請勿修改)'] ?? -1;
+    const ni   = colIdx['商品名稱 (繁體中文)'] ?? -1;
+    const ti   = colIdx['款式 (繁體中文) (勿更改)'] ?? -1;
+    const spi  = colIdx['款式特價'] ?? -1;         // 優先：款式特價
+    const pspi = colIdx['商品特價'] ?? -1;          // 次要：商品特價
+    const vpi  = colIdx['款式價格'] ?? -1;          // 三級：款式原價
+    const opri = colIdx['商品原價'] ?? -1;          // 四級：商品原價
+    const wsi  = colIdx['網店上架狀態'] ?? -1;
+    if((vi<0&&ski<0)||(qi<0&&pqi<0))continue;
+
+    // 先做一遍 ffill：網店上架狀態 + 預購功能
+    const prei = colIdx['預購功能'] ?? -1;
+    const rowWebStatus  = new Array(raw.length).fill('');
+    const rowPreOrder   = new Array(raw.length).fill('');
+    let lastWS='', lastPre='';
+    for(let i=hi+1;i<raw.length;i++){
+      const wsVal =wsi>=0?String(raw[i][wsi] ||'').trim():'';
+      const preVal=prei>=0?String(raw[i][prei]||'').trim():'';
+      if(wsVal &&wsVal !=='undefined'&&wsVal !=='nan')lastWS =wsVal;
+      if(preVal&&preVal!=='undefined'&&preVal!=='nan')lastPre=preVal;
+      rowWebStatus[i]=lastWS;
+      rowPreOrder[i] =lastPre;
+    }
+
+    // 從 hi+1 開始遍歷，ffill 商品名稱
+    let lastName='';
+    for(let i=hi+1;i<raw.length;i++){
+      const row=raw[i];
+      const nameVal=ni>=0?String(row[ni]||'').trim():'';
+      if(nameVal&&nameVal!=='undefined'&&nameVal!=='nan')lastName=nameVal;
+
+      // ERP碼
+      let vsku=vi>=0?String(row[vi]||'').trim().replace(/^-+|-+$/g,''):'';
+      let useQtyCol=qi;
+      if(!vsku||vsku==='undefined'||vsku==='nan'){
+        vsku=ski>=0?String(row[ski]||'').trim().replace(/^-+|-+$/g,''):'';
+        useQtyCol=pqi;
+      }
+      if(!vsku||vsku==='undefined'||vsku==='nan')continue;
+
+      // 特價：款式特價 → 商品特價 → 款式原價 → 商品原價（取第一個有值的）
+      const _sp1 = spi>=0  ? parseFloat(row[spi]) ||0 : 0;
+      const _sp2 = pspi>=0 ? parseFloat(row[pspi])||0 : 0;
+      const _sp3 = vpi>=0  ? parseFloat(row[vpi]) ||0 : 0;
+      const _sp4 = opri>=0 ? parseFloat(row[opri])||0 : 0;
+      // 款式特價或商品特價 > 0 優先，否則用原價
+      const slPrice = _sp1>0 ? _sp1 : (_sp2>0 ? _sp2 : (_sp3>0 ? _sp3 : _sp4));
+      // 數量
+      const rawQty=useQtyCol>=0?row[useQtyCol]:'';
+      const qty=(rawQty===''||rawQty===null||rawQty===undefined)?0:(isNaN(parseFloat(rawQty))?0:parseFloat(rawQty));
+
+      const isOnline = rowWebStatus[i]==='Y' || rowPreOrder[i]==='Y';
+      const entry={name:lastName,variant:ti>=0?String(row[ti]||'').trim():'',qty:Math.round(qty),slPrice,isOnline};
+
+      if(!slMap[vsku]){
+        slMap[vsku]=entry; // 第一次出現
+        if(vsku==='010001MP0153D')console.log('FIRST',vsku,'isOnline='+isOnline,'ws='+rowWebStatus[i],'pre='+rowPreOrder[i],'price='+slPrice);
+      } else if(isOnline && !slMap[vsku].isOnline){
+        slMap[vsku]=entry; // 覆蓋：這筆是網店上架，舊的不是
+        if(vsku==='010001MP0153D')console.log('OVERRIDE',vsku,'isOnline='+isOnline,'ws='+rowWebStatus[i],'pre='+rowPreOrder[i],'price='+slPrice);
+      } else {
+        if(vsku==='010001MP0153D')console.log('SKIP',vsku,'isOnline='+isOnline,'existing.isOnline='+slMap[vsku].isOnline,'ws='+rowWebStatus[i],'price='+slPrice);
+      }
+    }
+  }
+  return slMap;
+}
+
+// ── 主比對邏輯
+async function runComparisonApple(){
+  hideErrorApple();showStatusApple('解析 Shopline 檔案…');
+  try{
+    const slMap=await parseShoplineApple(shoplineFilesApple);
+    showStatusApple('比對中…');
+    const{erpMap}=inventoryDataApple;
+    const availErp=new Set(Object.keys(erpMap));
+
+    const needFix=[],correct=[];
+    // 只比對 Shopline 中「已上架」且庫存也有的 ERP。
+    // 注意：slMap 裡可能存在 Shopline 匯出檔案中有這筆資料、但實際是草稿/未勾選上架（isOnline=false）的情況，
+    // 這種不算真正「已上架」，要當成未上架處理，才不會漏掉像 MD80654 這種「檔案裡有資料但其實沒上架」的狀況。
+    for(const[erp,sl]of Object.entries(slMap)){
+      if(!availErp.has(erp))continue;
+      if(!sl.isOnline)continue; // 存在於匯出檔但未勾選上架 → 視為未上架，留給 notFound 處理
+      const invQ=erpMap[erp].count, diff=invQ-sl.qty;
+      // 差異原因：列出不可賣的狀態分布
+      const reasons=inventoryDataApple.reasonMap[erp]||{};
+      const reasonStr=Object.entries(reasons).map(([s,n])=>s+' x'+n).join('、');
+      // 價格比對：只列網店上架或預購的商品，且與庫存進階售價不同
+      const invPrice = Number(erpMap[erp].price) || 0;
+      const slPrice  = sl.slPrice || 0;
+      const priceDiff = (sl.isOnline && invPrice > 0 && slPrice !== invPrice)
+        ? `SL:${slPrice.toLocaleString()} vs 庫存:${invPrice.toLocaleString()}` : '';
+      const entry={erp, productId:sl.productId||'', variationId:sl.variationId||'', name:sl.name, variant:sl.variant, slQ:sl.qty, invQ, diff,
+                   model:erpMap[erp].model, color:erpMap[erp].color, reason:reasonStr, priceDiff,
+                   slPrice:sl.slPrice||0};
+      diff!==0?needFix.push(entry):correct.push(entry);
+    }
+    needFix.sort((a,b)=>a.diff-b.diff);
+
+    const matched=new Set([...needFix,...correct].map(r=>r.erp));
+    const notFound=Object.values(erpMap)
+      .filter(e=>!matched.has(e.erp))
+      .sort((a,b)=>a.model.localeCompare(b.model));
+
+    // 價格不符：Shopline特價>0 且與庫存進階售價不同
+    const priceWrong=[...needFix,...correct]
+      .filter(r=>r.priceDiff)
+      .map(r=>({
+        erp:r.erp, productId:r.productId||'', variationId:r.variationId||'', name:r.name, variant:r.variant,
+        slPrice:r.slPrice||0,
+        invPrice:Number(erpMap[r.erp]?.price)||0
+      }));
+
+    // 反向排查：庫存表標記「Shopline電商」，但 Shopline 匯出檔案中「查無此ERP」或「有資料但未上架」
+    const flaggedMap=inventoryDataApple.flaggedMap||{};
+    const flaggedNotFound=Object.values(flaggedMap)
+      .filter(f=>{const sl=slMap[f.erp];return !sl||!sl.isOnline;})
+      .map(f=>{
+        const sl=slMap[f.erp];
+        const slFound = !!sl; // true=有資料但未上架（草稿/下架）；false=完全查無此ERP
+        const slState = !sl ? 'Shopline查無此ERP' : 'Shopline有資料但下架';
+        return {...f,statuses:[...f.statuses].join('、'),platStatuses:[...f.platStatuses].join('、'),skus:[...f.skus].join('、'),slState,slFound};
+      })
+      .sort((a,b)=>a.model.localeCompare(b.model));
+
+    lastResultApple={needFix,notFound,correct,priceWrong,flaggedNotFound};
+    renderApple(needFix,notFound,correct,priceWrong,flaggedNotFound);
+  }catch(err){showErrorApple(`比對失敗：${err.message}`);}
+  finally{hideStatusApple();}
+}
+
+function renderApple(needFix,notFound,correct,priceWrong,flaggedNotFound){
+  flaggedNotFound=flaggedNotFound||[];
+  document.getElementById('resultsApple').style.display='block';
+  document.getElementById('summaryCardsApple').innerHTML=`
+    <div class="card warn"><div><div class="card-num">${needFix.length}</div><div class="card-label">需調整數量</div></div></div>
+    <div class="card pink"><div><div class="card-num">${priceWrong.length}</div><div class="card-label">價格不符</div></div></div>
+    <div class="card info"><div><div class="card-num">${notFound.length}</div><div class="card-label">待上架規格</div></div></div>
+    <div class="card red"><div><div class="card-num">${flaggedNotFound.length}</div><div class="card-label">電商已標記卻找不到</div></div></div>
+    <div class="card ok"><div><div class="card-num">${correct.length}</div><div class="card-label">數量已一致</div></div></div>`;
+  document.getElementById('countWarn').textContent=`${needFix.length} 筆`;
+  document.getElementById('countPrice').textContent=`${priceWrong.length} 筆`;
+  document.getElementById('applyPriceBtnApple').disabled=priceWrong.length===0;
+  document.getElementById('countInfo').textContent=`${notFound.length} 個規格`;
+  document.getElementById('countFlagged').textContent=`${flaggedNotFound.length} 個規格`;
+  document.getElementById('countOk').textContent=`${correct.length} 筆`;
+
+  // 價格不符表格
+  document.getElementById('tbodyPrice').innerHTML=priceWrong.length===0
+    ?`<tr><td colspan="6" style="text-align:center;padding:18px;color:var(--text-dim)">所有特價與庫存一致</td></tr>`
+    :priceWrong.map(r=>{
+      const diff=r.slPrice-r.invPrice;
+      const dStr=(diff>0?'+':'')+diff.toLocaleString();
+      const dColor=diff>0?'var(--green)':'var(--red)';
+      return `<tr>
+        <td><span class="erp-code">${escApple(r.erp)}</span></td>
+        <td style="max-width:180px">${escApple(r.name)}</td>
+        <td style="color:var(--text-dim);max-width:160px">${escApple(r.variant)}</td>
+        <td style="text-align:center;font-weight:600">$${r.slPrice.toLocaleString()}</td>
+        <td style="text-align:center">$${r.invPrice.toLocaleString()}</td>
+        <td style="text-align:center;font-weight:700;color:${dColor}">${dStr}</td>
+      </tr>`;
+    }).join('');
+
+  document.getElementById('tbodyWarn').innerHTML=needFix.length===0
+    ?`<tr><td colspan="7" style="text-align:center;padding:18px;color:var(--text-dim)">無需調整項目</td></tr>`
+    :needFix.map(r=>{
+      const d=r.diff>0?`+${r.diff}`:String(r.diff);
+      const dc=r.diff<0?'diff-neg':'diff-pos', sc=r.diff<0?'suggest-neg':'suggest-pos';
+      return `<tr><td><span class="erp-code">${escApple(r.erp)}</span></td><td style="max-width:180px">${escApple(r.name)}</td><td style="color:var(--text-dim);max-width:160px">${escApple(r.variant)}</td><td style="text-align:center">${r.slQ}</td><td style="text-align:center;font-weight:600">${r.invQ}</td><td style="text-align:center"><span class="${dc}">${d}</span></td><td style="text-align:center"><span class="suggest-cell ${sc}">${d}</span></td><td style="font-size:11px;color:var(--text-dim);max-width:160px">${escApple(r.reason||'')}</td></tr>`;
+    }).join('');
+
+  document.getElementById('tbodyInfo').innerHTML=notFound.length===0
+    ?`<tr><td colspan="5" style="text-align:center;padding:18px;color:var(--text-dim)">所有規格已上架</td></tr>`
+    :notFound.map(r=>`<tr>
+      <td><span class="erp-code">${escApple(r.erp)}</span></td>
+      <td>${escApple(r.model)}</td>
+      <td style="text-align:center">${escApple(r.color)}</td>
+      <td style="text-align:center">${escApple(r.cat)}</td>
+      <td style="text-align:center;font-weight:600">${escApple(r.gradeO)}</td>
+      <td style="text-align:center">${escApple(r.gradeS)}</td>
+      <td style="text-align:center">${escApple(r.gradeB)}</td>
+      <td style="text-align:center">${r.price!==''?'$'+Number(r.price).toLocaleString():''}</td>
+      <td style="text-align:center;font-weight:700">${r.count}</td>
+      <td style="text-align:center"><span class="pending-badge">待上架</span></td>
+    </tr>`).join('');
+
+  document.getElementById('tbodyFlagged').innerHTML=flaggedNotFound.length===0
+    ?`<tr><td colspan="10" style="text-align:center;padding:18px;color:var(--text-dim)">無標記異常</td></tr>`
+    :flaggedNotFound.map(r=>`<tr>
+      <td><span class="erp-code">${escApple(r.erp)}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${escApple(r.skus)}</td>
+      <td>${escApple(r.model)}</td>
+      <td style="text-align:center">${escApple(r.color)}</td>
+      <td style="text-align:center;font-weight:600">${escApple(r.gradeO)}</td>
+      <td style="text-align:center">${r.price!==''?'$'+Number(r.price).toLocaleString():''}</td>
+      <td style="text-align:center;font-weight:700">${r.count}</td>
+      <td style="font-size:11px;color:var(--text-dim)">${escApple(r.statuses)||'（空白）'}</td>
+      <td style="font-size:11px;color:var(--red)">${escApple(r.platStatuses)}</td>
+      <td style="font-size:11px"><span class="sl-badge ${r.slFound?'sl-draft':'sl-missing'}">${escApple(r.slState)}</span></td>
+    </tr>`).join('');
+
+  document.getElementById('tbodyOk').innerHTML=correct.length===0
+    ?`<tr><td colspan="4" style="text-align:center;padding:18px;color:var(--text-dim)">—</td></tr>`
+    :correct.map(r=>`<tr><td><span class="erp-code">${escApple(r.erp)}</span></td><td style="max-width:180px">${escApple(r.name)}</td><td style="color:var(--text-dim);max-width:160px">${escApple(r.variant)}</td><td style="text-align:center">${r.slQ}</td></tr>`).join('');
+
+  const now=new Date();
+  document.getElementById('reportTsApple').textContent=`比對時間：${now.toLocaleDateString('zh-TW')} ${now.toLocaleTimeString('zh-TW')}`;
+  if(activeTab==='apple')window.scrollTo({top:document.getElementById('resultsApple').offsetTop-16,behavior:'smooth'});
+}
+
+function checkReadyApple(){
+  setRunBusy(false);
+}
+function toggleApple(b,c){document.getElementById(b).classList.toggle('open');document.getElementById(c).classList.toggle('open');}
+function showStatusApple(m){const b=document.getElementById('statusBarApple');b.style.display='flex';document.getElementById('statusTextApple').textContent=m;setRunBusy(true);document.getElementById('invDot').className='dot';document.getElementById('invStatusText').textContent='主機更新中';}
+function hideStatusApple(){document.getElementById('statusBarApple').style.display='none';checkReadyApple();updateHeaderApple();}
+function showErrorApple(m){const el=document.getElementById('errorMsgApple');el.textContent=m;el.style.display='block';}
+function hideErrorApple(){document.getElementById('errorMsgApple').style.display='none';}
+function escApple(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+async function applyApplePrices(){
+  if(!lastResultApple||!lastResultApple.priceWrong||!lastResultApple.priceWrong.length)return;
+  hideErrorApple();
+  const candidates=lastResultApple.priceWrong
+    .filter(r=>r.productId&&Number(r.invPrice)>0)
+    .map(r=>({sku:r.erp,product_id:r.productId,variation_id:r.variationId,sale_price:Number(r.invPrice)}));
+  if(!candidates.length){
+    showErrorApple(`價格套用失敗：這次 ${lastResultApple.priceWrong.length} 筆價格不符沒有可更新的商品 ID。請先更新 Cloudflare Worker，再按一次「即時更新」後重試。`);
+    return;
+  }
+  const btn=document.getElementById('applyPriceBtnApple');
+  btn.disabled=true;
+  btn.textContent='套用中…';
+  showStatusApple(`正在套用 ${candidates.length} 筆主機特價，請稍等…`);
+  try{
+    const endpoint=new URL(LIVE_SOURCES.shoplineApi);
+    const url=endpoint.origin+'/shopline-prices';
+    const response=await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({items:candidates})
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data.error)throw new Error(data.error||`SHOPLINE proxy ${response.status}`);
+    const failed=Number(data.failed||0), updated=Number(data.updated||0);
+    if(failed>0){
+      const sample=(data.results||[]).filter(r=>!r.ok).slice(0,3).map(r=>`${r.sku||''} ${r.error||r.status||''}`.trim()).join('；');
+      throw new Error(`已更新 ${updated} 筆，失敗 ${failed} 筆${sample?'：'+sample:''}`);
+    }
+    showStatusApple(`已套用 ${updated} 筆主機特價，正在重新比對…`);
+    await runAutoApple();
+  }catch(err){
+    showErrorApple(`價格套用失敗：${err.message}`);
+  }finally{
+    btn.textContent='套用價格';
+    hideStatusApple();
+    if(lastResultApple&&lastResultApple.priceWrong)btn.disabled=lastResultApple.priceWrong.length===0;
+  }
+}
+function exportCSVApple(){
+  if(!lastResultApple)return;
+  const{needFix,notFound,flaggedNotFound}=lastResultApple;
+  let csv='區塊,ERP條碼,型號/商品名稱,款式,Shopline數量,庫存可賣,差異,建議增減\n';
+  for(const r of needFix){const d=r.diff>0?`+${r.diff}`:String(r.diff);csv+=`需調整,"${r.erp}","${r.name||r.model}","${r.variant}",${r.slQ},${r.invQ},${d},${d}\n`;}
+  for(const r of notFound){csv+=`待上架,"${r.erp}","${r.model}","${r.color}",,${r.count},,\n`;}
+  for(const r of (flaggedNotFound||[])){csv+=`電商已標記卻找不到,"${r.erp}","${r.model}","${r.color}",,${r.count},,"貨號:${r.skus||''} / 目前販售狀態:${r.statuses||'空白'} / SL狀態:${r.slState||''}"\n`;}
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`麥克愛愛_比對_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+
+
+
+// ══ 配件 JS ══
+
+const SKIP_SHEETS=new Set(['辦公室進銷量對應總表','總表_批次更新用','SIMMPO','SIMMPO 通路批發用','門市進銷量對應總表','寄倉進銷量對應總表','適用機型及類別']);
+accDataAcc=null; shoplineFilesAcc=[]; lastResultAcc=null;
+
+function handleInvAcc(e){const f=e.target.files[0];if(f)parseAccAcc(f);}
+function handleSLMultiAcc(e){
+  const files=Array.from(e.target.files);if(!files.length)return;
+  shoplineFilesAcc=files;
+  document.getElementById('slotSLAcc').classList.add('filled');
+  const nm=document.getElementById('slotSLNameAcc');
+  nm.textContent=`已選 ${files.length} 個檔案`;nm.classList.add('ready');
+  document.getElementById('slFileListAcc').innerHTML=files.map(f=>`<span style="font-size:10px;padding:3px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;color:#16a34a;white-space:nowrap">${f.name.length>18?f.name.slice(0,16)+'…':f.name}</span>`).join('');
+  checkReadyAcc();
+}
+
+// ── 解析配件庫存表 ────────────────────────────────────────────────────
+async function parseAccAcc(file){
+  const dot=document.getElementById('invDot'),text=document.getElementById('invStatusText');
+  dot.className='dot';text.textContent='讀取配件庫存表…';
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const items={};
+    for(const sheetName of wb.SheetNames){
+      if(SKIP_SHEETS.has(sheetName))continue;
+      const ws=wb.Sheets[sheetName];
+      const raw=XLSX.utils.sheet_to_json(ws,{defval:'',header:1});
+      // 找 header row
+      let hi=-1;
+      for(let i=0;i<Math.min(raw.length,5);i++){
+        if(raw[i].some(v=>String(v).includes('產品編號'))){hi=i;break;}
+      }
+      if(hi<0)continue;
+      const hdrs=raw[hi].map(v=>String(v));
+      const skuI  =hdrs.findIndex(h=>h.includes('產品編號'));
+      const platI =hdrs.findIndex(h=>h.includes('電商平台'));
+      const nameI =hdrs.findIndex(h=>h.includes('商品名稱'));
+      const colorI=hdrs.findIndex(h=>h.includes('顏色'));
+      const priceI=hdrs.findIndex(h=>h.includes('建議售價'));
+      let stopI =hdrs.findIndex(h=>h.includes('是否停產'));
+      if(stopI<0) stopI = hdrs.findIndex(h=>h.includes('廠商狀態')); // 部分分頁(UAG/LAUT/SKINARMA)用「廠商狀態」取代「是否停產」
+      const coI   =hdrs.findIndex(h=>h.includes('公司狀態'));
+      if(skuI<0)continue;
+
+      // K欄(辦公室+大安庫存)是公式，SheetJS讀不到計算值
+      // 需自行計算：K = L + M
+      // L = 倉庫盤點欄相加, M = 大安盤點欄相加
+      // 判斷是河馬/SUPCASE格式還是其他格式
+      const isHippo = sheetName.includes('河馬') || sheetName.includes('SUPCASE');
+      // 其他: L=col27+28-29-30, M=col22+23-24-25 (0-indexed)
+      // 河馬: L=col28+29-30-31, M=col23+24-25-26 (0-indexed)
+      const lCols = isHippo ? [28,29,30,31] : [27,28,29,30];
+      const mCols = isHippo ? [23,24,25,26] : [22,23,24,25];
+
+      function calcStock(row) {
+        const toN = v => { const f=parseFloat(v); return isNaN(f)?0:f; };
+        const L = toN(row[lCols[0]]) + toN(row[lCols[1]]) - toN(row[lCols[2]]) - toN(row[lCols[3]]);
+        const M = toN(row[mCols[0]]) + toN(row[mCols[1]]) - toN(row[mCols[2]]) - toN(row[mCols[3]]);
+        return Math.round(L + M);
+      }
+
+      for(let i=hi+1;i<raw.length;i++){
+        const row=raw[i];
+        const sku=String(row[skuI]||'').trim();
+        if(!sku||sku==='nan'||sku==='產品編號 / 國際條碼')continue;
+        const platform=String(row[platI]||'').trim();
+        const baseName=String(row[nameI]||'').trim();
+        const color=colorI>=0?String(row[colorI]||'').trim():'';
+        const name=(color&&color!=='nan')?`${baseName}｜${color}`:baseName;
+        const price=parseFloat(row[priceI])||0;
+        const stock=calcStock(row);
+        const stop=String(row[stopI]||'').trim();
+        const co=String(row[coI]||'').trim();
+        items[sku]={
+          name,platform,price,stock,stop,co,sheet:sheetName,
+          shouldShopline:platform.includes('Shopline線上'),
+          canPreorder:!isNoStockStatus(co)
+        };
+      }
+    }
+    accDataAcc=items;
+    document.getElementById('slotInvAcc').classList.add('filled');
+    const nm=document.getElementById('slotInvNameAcc');
+    nm.textContent=file.name.length>18?file.name.slice(0,16)+'…':file.name;nm.classList.add('ready');
+    dot.classList.add('live');
+    const total=Object.keys(items).length;
+    const onSL=Object.values(items).filter(v=>v.shouldShopline).length;
+    text.textContent=`配件表已載入｜${total} 筆 / 應上架 ${onSL} 筆`;
+    checkReadyAcc();
+  }catch(err){dot.classList.add('err');text.textContent=`讀取失敗：${err.message}`;}
+}
+
+// ── 解析 Shopline ─────────────────────────────────────────────────────
+async function parseSLAcc(files){
+  const slMap={};
+  for(const file of files){
+    if(!file)continue;
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const raw=XLSX.utils.sheet_to_json(ws,{defval:'',header:1});
+    let hi=-1;
+    for(let i=0;i<Math.min(raw.length,5);i++){
+      if(raw[i].some(v=>String(v).includes('款式貨號'))){hi=i;break;}
+    }
+    if(hi<0)continue;
+    const hdrs=raw[hi].map(v=>String(v));
+    const colIdx={};hdrs.forEach((h,i)=>{colIdx[h]=i;});
+    const vi   =colIdx['款式貨號']??-1;
+    const ski  =colIdx['商品貨號']??-1;
+    const qi   =colIdx['款式數量 (參考用，請勿修改)']??-1;
+    const pqi  =colIdx['數量 (參考用，請勿修改)']??-1;
+    const ni   =colIdx['商品名稱 (繁體中文)']??-1;
+    // 價格欄位
+    const vSpi =colIdx['款式特價']??-1;       // 款式特價
+    const vVpi =colIdx['款式價格']??-1;       // 款式原價
+    const pSpi =colIdx['商品特價']??-1;       // 商品特價（主行）
+    const pOpi =colIdx['商品原價']??-1;       // 商品原價（主行）
+    const wsi  =colIdx['網店上架狀態']??-1;
+    const prei =colIdx['預購功能']??-1;
+
+    const toF=v=>{
+      if(v===''||v===null||v===undefined||v==='價格一致')return null; // null=繼承主行
+      const f=parseFloat(v); return isNaN(f)?null:f;
+    };
+
+    // 預先 ffill：網店狀態、預購功能、商品主行價格
+    const rowWS=[],rowPre=[],rowProdSP=[],rowProdOP=[];
+    let lws='',lpre='',lpsp=0,lpop=0;
+    for(let i=hi+1;i<raw.length;i++){
+      const row=raw[i];
+      const w=wsi>=0?String(row[wsi]||'').trim():'';
+      const p=prei>=0?String(row[prei]||'').trim():'';
+      // 商品特價和商品原價只在主行有值（款式行是nan）
+      const psp=pSpi>=0?toF(row[pSpi]):null;
+      const pop=pOpi>=0?toF(row[pOpi]):null;
+      if(w&&w!=='undefined'&&w!=='nan')lws=w;
+      if(p&&p!=='undefined'&&p!=='nan')lpre=p;
+      if(psp!==null)lpsp=psp;
+      if(pop!==null)lpop=pop;
+      rowWS[i]=lws;rowPre[i]=lpre;rowProdSP[i]=lpsp;rowProdOP[i]=lpop;
+    }
+
+    let lastName='';
+    for(let i=hi+1;i<raw.length;i++){
+      const row=raw[i];
+      const nv=ni>=0?String(row[ni]||'').trim():'';
+      if(nv&&nv!=='undefined'&&nv!=='nan')lastName=nv;
+      let sku=vi>=0?String(row[vi]||'').trim().replace(/^-+|-+$/g,''):'';
+      let useQty=qi;
+      if(!sku||sku==='undefined'||sku==='nan'){
+        sku=ski>=0?String(row[ski]||'').trim().replace(/^-+|-+$/g,''):'';
+        useQty=pqi;
+      }
+      if(!sku||sku==='undefined'||sku==='nan')continue;
+      const ws=rowWS[i],pre=rowPre[i];
+      const isOnline=ws==='Y';  // 只有網店上架才算
+      // 特價邏輯：款式特價 > 0 → 款式原價 > 0 → 商品特價 > 0 → 商品原價
+      const vsp=vSpi>=0?toF(row[vSpi]):null;
+      const vvp=vVpi>=0?toF(row[vVpi]):null;
+      let slPrice=0;
+      if(vsp!==null&&vsp>0)slPrice=vsp;           // 有款式特價
+      else if(vvp!==null&&vvp>0)slPrice=vvp;      // 有款式原價
+      else if(rowProdSP[i]>0)slPrice=rowProdSP[i]; // 商品特價
+      else slPrice=rowProdOP[i];                    // 商品原價
+      const qty=Math.round(useQty>=0?(parseFloat(row[useQty])||0):0);
+      const entry={name:lastName,qty,price:slPrice,ws,pre,isOnline};
+      if(!slMap[sku]||(isOnline&&!slMap[sku].isOnline))slMap[sku]=entry;
+    }
+  }
+  return slMap;
+}
+
+// ── 主比對 ────────────────────────────────────────────────────────────
+async function runComparisonAcc(){
+  hideErrorAcc();showStatusAcc('解析 Shopline 檔案…');
+  try{
+    const slMap=await parseSLAcc(shoplineFilesAcc);
+    showStatusAcc('比對中…');
+    const r1a=[],r1b=[],r2=[],r3=[],r4=[],r5=[];
+    for(const[sku,acc]of Object.entries(accDataAcc)){
+      // 5: 新品未上架（不論是否找得到 Shopline 對應資料，只要配件表標示新品未上架或新品待上架就列出）
+      if(acc.platform.includes('新品未上架')||acc.platform.includes('新品待上架'))
+        r5.push({sku,name:acc.name,sheet:acc.sheet,accStock:acc.stock});
+      const inSL=sku in slMap;
+      const sl=slMap[sku]||{};
+      // 1a: 應上架但SL找不到
+      if(acc.shouldShopline&&!inSL)
+        r1a.push({sku,name:acc.name,sheet:acc.sheet,slQty:inSL?(sl.qty||0):null,accStock:acc.stock});
+      // 1b: SL 網店上架 但配件表未打勾（只看網店=Y）
+      if(inSL&&sl.isOnline&&!acc.shouldShopline)
+        r1b.push({sku,name:sl.name,sheet:acc.sheet,platform:acc.platform,slQty:sl.qty||0,accStock:acc.stock});
+      if(!inSL)continue;
+      // 2: 特價不符（只比對網店有上架的）
+      if(sl.isOnline&&acc.price>0&&sl.price!==acc.price)
+        r2.push({sku,name:acc.name,slPrice:sl.price,accPrice:acc.price,diff:sl.price-acc.price,slQty:sl.qty||0,accStock:acc.stock});
+      // 3: 數量不符
+      if(sl.qty!==acc.stock)
+        r3.push({sku,name:acc.name,slQty:sl.qty,accStock:acc.stock,diff:sl.qty-acc.stock});
+      // 4: 配件表不可預購，但 SHOPLINE 預購仍開啟
+      if(sl.pre==='Y'&&!acc.canPreorder){
+        r4.push({
+          sku,
+          name:acc.name||sl.name,
+          stop:acc.stop,
+          co:acc.co,
+          sheet:acc.sheet,
+          reason:'配件表公司狀態為不可預購',
+          action:'關閉 SHOPLINE 預購',
+          slQty:sl.qty||0,
+          accStock:acc.stock
+        });
+      }
+    }
+    lastResultAcc={r1a,r1b,r2,r3,r4,r5};
+    renderAcc(r1a,r1b,r2,r3,r4,r5);
+  }catch(err){showErrorAcc(`比對失敗：${err.message}`);}
+  finally{hideStatusAcc();}
+}
+
+// ── 渲染 ──────────────────────────────────────────────────────────────
+function renderAcc(r1a,r1b,r2,r3,r4,r5,apiMeta={}){
+  document.getElementById('resultsAcc').style.display='block';
+  const saleSupported=apiMeta.saleFieldSeen!==false;
+  const preorderSupported=apiMeta.preorderFieldSeen!==false;
+  const activePreorderCount=Number(apiMeta.activePreorderCount||0);
+  const preorderValue=preorderSupported?(activePreorderCount?`${r4.length}/${activePreorderCount}`:String(r4.length)):'--';
+  const preorderLabel=preorderSupported?(activePreorderCount?'預購異常 / 已開':'預購異常'):'預購欄未回傳';
+  document.getElementById('summaryCardsAcc').innerHTML=`
+    <div class="card yellow"><div><div class="card-num">${r5.length}</div><div class="card-label">新品未上架</div></div></div>
+    <div class="card red"><div><div class="card-num">${r1a.length}</div><div class="card-label">shopline找不到</div></div></div>
+    <div class="card orange"><div><div class="card-num">${r1b.length}</div><div class="card-label">配件表狀態需調</div></div></div>
+    <div class="card blue"><div><div class="card-num">${r3.length}</div><div class="card-label">數量不符</div></div></div>
+    <div class="card purple"><div><div class="card-num">${preorderValue}</div><div class="card-label">${preorderLabel}</div></div></div>`;
+  document.getElementById('count1a').textContent=`${r1a.length} 筆`;
+  document.getElementById('count1b').textContent=`${r1b.length} 筆`;
+  document.getElementById('count2').textContent=`${r2.length} 筆`;
+  document.getElementById('count3').textContent=`${r3.length} 筆`;
+  document.getElementById('count4').textContent=preorderSupported&&activePreorderCount?`${r4.length} 筆 / 已開 ${activePreorderCount}`:`${r4.length} 筆`;
+  document.getElementById('count5').textContent=`${r5.length} 筆`;
+
+  const empty=(cols,msg)=>`<tr><td colspan="${cols}" style="text-align:center;padding:18px;color:var(--text-dim)">${msg}</td></tr>`;
+
+  document.getElementById('tbody1a').innerHTML=r1a.length===0?empty(3,'無缺漏')
+    :r1a.map(r=>`<tr><td><span class="sku-code">${escAcc(r.sku)}</span></td><td style="max-width:260px">${escAcc(r.name)}</td><td><span class="sheet-badge">${escAcc(r.sheet)}</span></td><td style="text-align:center">${r.slQty!==null?r.slQty:'-'}</td><td style="text-align:center;font-weight:600">${r.accStock!==undefined?r.accStock:'-'}</td></tr>`).join('');
+
+  document.getElementById('tbody1b').innerHTML=r1b.length===0?empty(4,'無異常')
+    :r1b.map(r=>`<tr><td><span class="sku-code">${escAcc(r.sku)}</span></td><td style="max-width:260px">${escAcc(r.name)}</td><td><span class="sheet-badge">${escAcc(r.sheet)}</span></td><td style="font-size:11px;color:var(--orange)">${escAcc(r.platform)||'（空白）'}</td><td style="text-align:center">${r.slQty!==undefined?r.slQty:'-'}</td><td style="text-align:center;font-weight:600">${r.accStock!==undefined?r.accStock:'-'}</td></tr>`).join('');
+
+  document.getElementById('tbody2').innerHTML=!saleSupported?empty(5,'SHOPLINE API 尚未回傳特價欄位，需更新 Cloudflare Worker')
+    :r2.length===0?empty(5,'全部一致')
+    :r2.map(r=>{
+      const d=r.diff>0?'+'+r.diff:String(r.diff);
+      const dc=r.diff<0?'diff-neg':'diff-pos';
+      return `<tr><td><span class="sku-code">${escAcc(r.sku)}</span></td><td style="max-width:260px">${escAcc(r.name)}</td><td style="text-align:center;font-weight:600">${r.slPrice>0?'$'+r.slPrice.toLocaleString():'$0'}</td><td style="text-align:center">$${r.accPrice.toLocaleString()}</td><td style="text-align:center"><span class="${dc}">${d}</span></td><td style="text-align:center">${r.slQty!==undefined?r.slQty:'-'}</td><td style="text-align:center;font-weight:600">${r.accStock!==undefined?r.accStock:'-'}</td></tr>`;
+    }).join('');
+
+  document.getElementById('tbody3').innerHTML=r3.length===0?empty(6,'全部一致')
+    :r3.map(r=>{
+      const d=r.diff>0?'+'+r.diff:String(r.diff);
+      const dc=r.diff<0?'diff-neg':'diff-pos';
+      const sc=r.diff<0?'suggest-neg':'suggest-pos';
+      return `<tr><td><span class="sku-code">${escAcc(r.sku)}</span></td><td style="max-width:260px">${escAcc(r.name)}</td><td style="text-align:center">${r.slQty}</td><td style="text-align:center;font-weight:600">${r.accStock}</td><td style="text-align:center"><span class="${dc}">${d}</span></td><td style="text-align:center"><span class="suggest-cell ${sc}">${d}</span></td></tr>`;
+    }).join('');
+
+  document.getElementById('tbody4').innerHTML=!preorderSupported?empty(7,'SHOPLINE API 尚未回傳預購欄位，需更新 Cloudflare Worker')
+    :r4.length===0?empty(7,activePreorderCount?`SHOPLINE 有 ${activePreorderCount} 個上架預購 SKU，目前沒有違反配件表公司狀態的項目`:'SHOPLINE 目前沒有上架預購 SKU')
+    :r4.map(r=>`<tr><td><span class="sku-code">${escAcc(r.sku)}</span></td><td style="max-width:260px">${escAcc(r.name)}</td><td style="text-align:center;color:var(--purple)">${escAcc(r.reason||r.stop||'需確認')}</td><td style="text-align:center;color:var(--red)">${escAcc(r.co||'-')}</td><td style="text-align:center"><span class="warn-badge">${escAcc(r.action||'確認預購')}</span></td><td style="text-align:center">${r.slQty!==undefined?r.slQty:'-'}</td><td style="text-align:center;font-weight:600">${r.accStock!==undefined&&r.accStock!==''?r.accStock:'-'}</td></tr>`).join('');
+
+  document.getElementById('tbody5').innerHTML=r5.length===0?empty(4,'無新品未上架')
+    :r5.map(r=>`<tr><td><span class="sku-code">${escAcc(r.sku)}</span></td><td style="max-width:260px">${escAcc(r.name)}</td><td><span class="sheet-badge">${escAcc(r.sheet)}</span></td><td style="text-align:center;font-weight:600">${r.accStock!==undefined?r.accStock:'-'}</td></tr>`).join('');
+
+  const now=new Date();
+  document.getElementById('reportTsAcc').textContent=`比對時間：${now.toLocaleDateString('zh-TW')} ${now.toLocaleTimeString('zh-TW')}`;
+  if(activeTab==='acc')window.scrollTo({top:document.getElementById('resultsAcc').offsetTop-16,behavior:'smooth'});
+}
+
+function checkReadyAcc(){
+  setRunBusy(false);
+}
+function toggleAcc(b,c){document.getElementById(b).classList.toggle('open');document.getElementById(c).classList.toggle('open');}
+function showStatusAcc(m){const b=document.getElementById('statusBarAcc');b.style.display='flex';document.getElementById('statusTextAcc').textContent=m;setRunBusy(true);document.getElementById('invDot').className='dot';document.getElementById('invStatusText').textContent='配件更新中';}
+function hideStatusAcc(){document.getElementById('statusBarAcc').style.display='none';checkReadyAcc();updateHeaderAcc();}
+function showErrorAcc(m){const el=document.getElementById('errorMsgAcc');el.textContent=m;el.style.display='block';}
+function hideErrorAcc(){document.getElementById('errorMsgAcc').style.display='none';}
+function escAcc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function exportCSVAcc(){
+  if(!lastResultAcc)return;
+  const{r1a,r1b,r2,r3,r4,r5}=lastResultAcc;
+  let csv='區塊,SKU,商品名稱,分頁,SHOPLINE數值,配件表數值,差異,原因,建議動作,公司狀態,辦公室＋大安\n';
+  r1a.forEach(r=>csv+=`未上架,"${r.sku}","${r.name}","${r.sheet}",,"${r.accStock||0}",,"配件表標示 Shopline線上，但 SHOPLINE 找不到","確認是否上架","",${r.accStock||0}\n`);
+  r1b.forEach(r=>csv+=`待確認,"${r.sku}","${r.name}","${r.sheet}","${r.slQty||0}","${r.accStock||0}",,"SHOPLINE 有上架，但配件表未標示 Shopline線上","確認配件表上架狀態","",${r.accStock||0}\n`);
+  r2.forEach(r=>{const d=r.diff>0?'+'+r.diff:r.diff;csv+=`特價不符,"${r.sku}","${r.name}","","${r.slPrice}","${r.accPrice}","${d}","SHOPLINE 特價與配件表建議售價不同","確認價格","",${r.accStock||0}\n`;});
+  r3.forEach(r=>{const d=r.diff>0?'+'+r.diff:r.diff;csv+=`數量不符,"${r.sku}","${r.name}","","${r.slQty}","${r.accStock}","${d}","SHOPLINE 數量與辦公室＋大安庫存不同","調整 SHOPLINE 數量","",${r.accStock}\n`;});
+  r4.forEach(r=>csv+=`預購待查,"${r.sku}","${r.name}","${r.sheet||''}","${r.slQty||0}","${r.accStock!==undefined?r.accStock:''}",,"${r.reason||''}","${r.action||'確認預購'}","${r.co||''}","${r.accStock!==undefined?r.accStock:''}"\n`);
+  r5.forEach(r=>csv+=`新品未上架,"${r.sku}","${r.name}","${r.sheet}",,"${r.accStock||0}",,"配件表標示新品未上架或新品待上架","確認是否可上架","",${r.accStock||0}\n`);
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`配件比對_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+
+</script>
+</body>
+</html>
