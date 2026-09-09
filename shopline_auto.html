@@ -246,7 +246,7 @@
 
     <div class="result-section">
       <div class="result-header" onclick="toggleApple('bodyInfo','chevInfo')">
-        <div class="result-header-left"><span class="result-tag tag-info">待上架</span><span class="result-title">庫存可賣，Shopline 尚未建立</span></div>
+        <div class="result-header-left"><span class="result-tag tag-info">待上架</span><span class="result-title">庫存可賣，但 Shopline 尚未上架</span></div>
         <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="countInfo"></span><span class="chevron open" id="chevInfo">▼</span></div>
       </div>
       <div class="result-body open" id="bodyInfo">
@@ -257,13 +257,13 @@
     </div>
     <div class="result-section">
       <div class="result-header" onclick="toggleApple('bodyFlagged','chevFlagged')">
-        <div class="result-header-left"><span class="result-tag tag-red">反向排查</span><span class="result-title">庫存表已標記「Shopline電商」，但 Shopline 後台找不到</span><span class="info-icon" onclick="event.stopPropagation();document.getElementById('ruleBoxFlagged').classList.toggle('open')">i</span></div>
+        <div class="result-header-left"><span class="result-tag tag-red">反向排查</span><span class="result-title">庫存表已標記上架，但 Shopline 未上架或查無資料</span><span class="info-icon" onclick="event.stopPropagation();document.getElementById('ruleBoxFlagged').classList.toggle('open')">i</span></div>
         <div style="display:flex;align-items:center;gap:9px"><span class="result-count" id="countFlagged"></span><span class="chevron open" id="chevFlagged">▼</span></div>
       </div>
       <div class="rule-box" id="ruleBoxFlagged">
         <strong>規則說明：</strong>
-        跟上面「待上架」不同方向的排查：這裡不看「販售狀態」是否為現貨，只要主機庫存表「電商平台上架狀態」欄位有勾選「Shopline電商」，且該筆不是已售出，但在 Shopline 匯出檔案中「查無此ERP」或「有資料但未勾選上架（草稿/下架狀態）」，就會列在此表。
-        <ul><li>已排除「販售狀態＝已售出」的紀錄，避免售出品被誤判為需要上架。</li><li>「Shopline 狀態」欄位會標示是完全查無資料，還是匯出檔裡有資料但實際沒上架（這種最容易被忽略，例如商品建立成草稿忘記發布）。</li><li>常見原因：販售狀態尚未改成現貨、電商平台上架狀態勾選錯誤、或商品確實漏上架/漏發布。</li><li>可對照「目前販售狀態」欄位判斷是否為狀態誤植，再決定是否要補上架。</li><li>同一個 ERP 條碼可能對應多台不同貨號（序號）的機器，「貨號」欄位會列出目前尚有庫存的貨號，方便對照查找特定台機。</li></ul>
+        這裡是反向檢查：主機庫存表已標記要上 Shopline，但 Shopline 目前不是已上架狀態，或完全查不到這個 ERP。
+        <ul><li>已排除「販售狀態＝已售出」的紀錄，避免售出品被誤判為需要上架。</li><li>「Shopline 狀態」會統一標示為「Shopline 查無資料」或「後台已建立，未開上架」。</li><li>常見原因：庫存表上架標記勾錯、商品建好了但還沒開上架，或商品確實漏建。</li><li>可對照「目前販售狀態」和「電商平台上架狀態」判斷要修庫存表，還是要回 Shopline 補建或開上架。</li></ul>
       </div>
       <div class="result-body open" id="bodyFlagged">
         <table><thead><tr>
@@ -1042,7 +1042,7 @@ async function runComparisonAppleWithMap(slMap){
   }).sort((a,b)=>a.model.localeCompare(b.model));
   const priceWrong=[...needFix,...correct].filter(r=>r.priceDiff).map(r=>({erp:r.erp,productId:r.productId||'',variationId:r.variationId||'',name:r.name,variant:r.variant,slPrice:r.slPrice||0,invPrice:Number(erpMap[r.erp]?.price)||0}));
   const fullyCorrect=correct.filter(r=>!r.priceDiff);
-  const flaggedNotFound=Object.values(inventoryDataApple.flaggedMap||{}).filter(f=>{const sl=slMap[f.erp];return !sl||!sl.isOnline;}).map(f=>{const sl=slMap[f.erp];return{...f,statuses:[...f.statuses].join('、'),platStatuses:[...f.platStatuses].join('、'),skus:[...f.skus].join('、'),slState:!sl?'Shopline查無此ERP':'Shopline有資料但下架',slFound:!!sl};}).sort((a,b)=>a.model.localeCompare(b.model));
+  const flaggedNotFound=Object.values(inventoryDataApple.flaggedMap||{}).filter(f=>{const sl=slMap[f.erp];return !sl||!sl.isOnline;}).map(f=>{const sl=slMap[f.erp];return{...f,statuses:[...f.statuses].join('、'),platStatuses:[...f.platStatuses].join('、'),skus:[...f.skus].join('、'),slState:!sl?'Shopline 查無資料':'後台已建立，未開上架',slFound:!!sl};}).sort((a,b)=>a.model.localeCompare(b.model));
   lastResultApple={needFix,notFound,correct:fullyCorrect,priceWrong,flaggedNotFound};
   renderApple(needFix,notFound,fullyCorrect,priceWrong,flaggedNotFound);
 }
@@ -1337,14 +1337,14 @@ async function runComparisonApple(){
         invPrice:Number(erpMap[r.erp]?.price)||0
       }));
 
-    // 反向排查：庫存表標記「Shopline電商」，但 Shopline 匯出檔案中「查無此ERP」或「有資料但未上架」
+    // 反向排查：庫存表標記「Shopline電商」，但 Shopline 未上架或查無資料
     const flaggedMap=inventoryDataApple.flaggedMap||{};
     const flaggedNotFound=Object.values(flaggedMap)
       .filter(f=>{const sl=slMap[f.erp];return !sl||!sl.isOnline;})
       .map(f=>{
         const sl=slMap[f.erp];
         const slFound = !!sl; // true=有資料但未上架（草稿/下架）；false=完全查無此ERP
-        const slState = !sl ? 'Shopline查無此ERP' : 'Shopline有資料但下架';
+        const slState = !sl ? 'Shopline 查無資料' : '後台已建立，未開上架';
         return {...f,statuses:[...f.statuses].join('、'),platStatuses:[...f.platStatuses].join('、'),skus:[...f.skus].join('、'),slState,slFound};
       })
       .sort((a,b)=>a.model.localeCompare(b.model));
