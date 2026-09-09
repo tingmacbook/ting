@@ -1036,7 +1036,10 @@ async function runComparisonAppleWithMap(slMap){
   }
   needFix.sort((a,b)=>a.diff-b.diff);
   const matched=new Set([...needFix,...correct].map(r=>r.erp));
-  const notFound=Object.values(erpMap).filter(e=>!matched.has(e.erp)).sort((a,b)=>a.model.localeCompare(b.model));
+  const notFound=Object.values(erpMap).filter(e=>!matched.has(e.erp)).map(e=>{
+    const sl=slMap[e.erp];
+    return {...e,slFound:!!sl,slState:sl?'後台已建立，未開上架':'Shopline 查無資料'};
+  }).sort((a,b)=>a.model.localeCompare(b.model));
   const priceWrong=[...needFix,...correct].filter(r=>r.priceDiff).map(r=>({erp:r.erp,productId:r.productId||'',variationId:r.variationId||'',name:r.name,variant:r.variant,slPrice:r.slPrice||0,invPrice:Number(erpMap[r.erp]?.price)||0}));
   const fullyCorrect=correct.filter(r=>!r.priceDiff);
   const flaggedNotFound=Object.values(inventoryDataApple.flaggedMap||{}).filter(f=>{const sl=slMap[f.erp];return !sl||!sl.isOnline;}).map(f=>{const sl=slMap[f.erp];return{...f,statuses:[...f.statuses].join('、'),platStatuses:[...f.platStatuses].join('、'),skus:[...f.skus].join('、'),slState:!sl?'Shopline查無此ERP':'Shopline有資料但下架',slFound:!!sl};}).sort((a,b)=>a.model.localeCompare(b.model));
@@ -1268,7 +1271,7 @@ async function parseShoplineApple(files){
       const qty=(rawQty===''||rawQty===null||rawQty===undefined)?0:(isNaN(parseFloat(rawQty))?0:parseFloat(rawQty));
 
       const isOnline = rowWebStatus[i]==='Y' || rowPreOrder[i]==='Y';
-      const entry={name:lastName,variant:ti>=0?String(row[ti]||'').trim():'',qty:Math.round(qty),slPrice,isOnline};
+      const entry={name:lastName,variant:ti>=0?String(row[ti]||'').trim():'',qty:Math.round(qty),slPrice,shoplineStatus:isOnline?'已上架':'後台已建立，未開上架',isOnline};
 
       if(!slMap[vsku]){
         slMap[vsku]=entry; // 第一次出現
@@ -1319,6 +1322,10 @@ async function runComparisonApple(){
     const matched=new Set([...needFix,...correct].map(r=>r.erp));
     const notFound=Object.values(erpMap)
       .filter(e=>!matched.has(e.erp))
+      .map(e=>{
+        const sl=slMap[e.erp];
+        return {...e,slFound:!!sl,slState:sl?'後台已建立，未開上架':'Shopline 查無資料'};
+      })
       .sort((a,b)=>a.model.localeCompare(b.model));
 
     // 價格不符：Shopline特價>0 且與庫存進階售價不同
@@ -1391,7 +1398,7 @@ function renderApple(needFix,notFound,correct,priceWrong,flaggedNotFound){
     }).join('');
 
   document.getElementById('tbodyInfo').innerHTML=notFound.length===0
-    ?`<tr><td colspan="5" style="text-align:center;padding:18px;color:var(--text-dim)">所有規格已上架</td></tr>`
+    ?`<tr><td colspan="10" style="text-align:center;padding:18px;color:var(--text-dim)">所有規格已上架</td></tr>`
     :notFound.map(r=>`<tr>
       <td><span class="erp-code">${escApple(r.erp)}</span></td>
       <td>${escApple(r.model)}</td>
@@ -1402,7 +1409,7 @@ function renderApple(needFix,notFound,correct,priceWrong,flaggedNotFound){
       <td style="text-align:center">${escApple(r.gradeB)}</td>
       <td style="text-align:center">${r.price!==''?'$'+Number(r.price).toLocaleString():''}</td>
       <td style="text-align:center;font-weight:700">${r.count}</td>
-      <td style="text-align:center"><span class="pending-badge">待上架</span></td>
+      <td style="text-align:center"><span class="sl-badge ${r.slFound?'sl-draft':'sl-missing'}">${escApple(r.slState||'Shopline 查無資料')}</span></td>
     </tr>`).join('');
 
   document.getElementById('tbodyFlagged').innerHTML=flaggedNotFound.length===0
